@@ -1,0 +1,182 @@
+/* VRCA 网页分析页：复用解绑门户视觉系统的真实分析适配层。 */
+.v-file-drop {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-height: 72px;
+  padding: 12px 14px;
+  border: 1px dashed var(--v-line-strong);
+  border-radius: var(--v-r-md);
+  background: rgba(0, 229, 255, 0.035);
+  cursor: pointer;
+  transition: border-color 170ms var(--v-ease), background 170ms var(--v-ease), box-shadow 170ms var(--v-ease);
+}
+
+.v-file-drop:hover,
+.v-file-drop:focus-visible,
+.v-file-drop.is-dragover {
+  border-color: var(--v-cyan);
+  background: rgba(0, 229, 255, 0.075);
+  box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.08), 0 0 26px -14px var(--v-cyan);
+}
+
+.v-file-drop.is-invalid {
+  border-color: var(--v-rose);
+  background: rgba(255, 107, 138, 0.06);
+}
+
+.v-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.v-file-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  border-radius: 10px;
+  color: var(--v-cyan-bright);
+  font-family: var(--v-font-mono);
+  font-size: 22px;
+  line-height: 1;
+  box-shadow: 0 0 20px -10px var(--v-cyan);
+}
+
+.v-file-copy { min-width: 0; flex: 1; }
+.v-file-copy strong,
+.v-file-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-file-copy strong { color: var(--v-text-2); font-size: 13px; font-weight: 650; }
+.v-file-copy small { margin-top: 3px; color: var(--v-text-4); font-size: 11px; }
+
+.v-file-button {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border: 1px solid var(--v-line);
+  border-radius: var(--v-r-sm);
+  color: var(--v-cyan-bright);
+  font-family: var(--v-font-mono);
+  font-size: 10px;
+  letter-spacing: .04em;
+}
+
+.analysis-actions { align-items: center; }
+.analysis-actions .v-btn-primary { flex: 1; }
+
+.analysis-card-label { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.analysis-session-exit { padding: 0; border: 0; background: transparent; color: var(--v-text-3); font: inherit; font-size: 11px; cursor: pointer; }
+.analysis-session-exit:hover { color: var(--v-cyan-bright); }
+.analysis-session-exit:disabled { opacity: .45; cursor: wait; }
+
+.analysis-password-results { padding: 18px 20px; border-bottom: 1px solid var(--v-line); }
+.analysis-result-summary { margin: 0; color: var(--v-text); font-size: 14px; line-height: 1.65; }
+.analysis-password-group { margin-top: 20px; }
+.analysis-password-group h3 { margin: 0; color: var(--v-cyan-bright); font-size: 12px; font-weight: 650; }
+.analysis-password-group.is-reference h3 { color: var(--v-text-2); }
+.analysis-result-hint { margin: 7px 0 0; color: var(--v-text-3); font-size: 11px; line-height: 1.7; }
+.analysis-password-list { display: grid; gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; }
+.analysis-password-item { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid rgba(0, 229, 255, .2); border-radius: var(--v-r-sm); background: rgba(0, 229, 255, .04); }
+.is-reference .analysis-password-item { border-color: var(--v-line); background: rgba(120, 170, 190, .035); }
+.analysis-password-value { color: var(--v-cyan-bright); font: 600 19px/1.5 var(--v-font-mono); overflow-wrap: anywhere; white-space: pre-wrap; user-select: all; }
+.is-reference .analysis-password-value { color: var(--v-text-2); }
+.analysis-password-confidence { color: var(--v-text-3); font-size: 10px; }
+.analysis-password-context { color: var(--v-text-4); font-size: 10px; overflow-wrap: anywhere; }
+.analysis-guide { margin-top: 18px; color: var(--v-text-2); font-size: 12px; }
+.analysis-guide summary { cursor: pointer; }
+.analysis-guide-sequence { color: var(--v-text-2); font: 13px/1.6 var(--v-font-mono); overflow-wrap: anywhere; }
+#password-limit-note { margin-top: 16px; }
+.analysis-feature-card { margin-top: 18px; padding: 18px 20px; border: 1px solid var(--v-line); border-radius: var(--v-r-md); background: rgba(4, 11, 22, .73); }
+.analysis-feature-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.analysis-feature-head h3 { margin: 4px 0 0; color: var(--v-text); font-size: 14px; font-weight: 650; }
+.analysis-removal-scope { margin: 14px 0 0; color: var(--v-text-2); font-size: 12px; line-height: 1.6; }
+.analysis-removal-confirm { display: flex; align-items: flex-start; gap: 9px; margin-top: 16px; color: var(--v-text-2); font-size: 11px; line-height: 1.7; cursor: pointer; }
+.analysis-removal-confirm input { flex-shrink: 0; margin-top: 3px; accent-color: var(--v-cyan); }
+.analysis-removal-actions { flex-wrap: wrap; margin-top: 15px; }
+.analysis-download { text-decoration: none; }
+#download-sha { overflow-wrap: anywhere; }
+.analysis-free-banner { display: grid; gap: 5px; padding: 13px 15px; margin-bottom: 18px; border: 1px solid rgba(63, 240, 173, .35); border-radius: var(--v-r-sm); background: rgba(63, 240, 173, .045); color: var(--v-mint); font-size: 12px; }
+.analysis-free-banner small { color: var(--v-text-3); font-size: 11px; }
+.analysis-announcement { position: fixed; z-index: 120; inset: 0; display: grid; place-items: center; padding: 22px; background: rgba(2, 4, 11, .75); backdrop-filter: blur(9px); }
+.analysis-announcement-panel { width: min(100%, 430px); padding: 28px; border: 1px solid var(--v-line-strong); border-radius: var(--v-r-lg); background: var(--v-surface-1); box-shadow: var(--v-glow-cyan); }
+#free-notice-text { margin: 18px 0 0; color: var(--v-text-2); font-size: 13px; line-height: 1.8; white-space: pre-wrap; }
+#free-notice-close { width: 100%; margin-top: 22px; }
+[hidden].analysis-announcement, [hidden].analysis-free-banner { display: none; }
+
+.analysis-progress {
+  margin-top: 22px;
+  padding: 17px 18px 15px;
+  border: 1px solid rgba(0, 229, 255, 0.22);
+  border-radius: var(--v-r-md);
+  background: rgba(4, 8, 18, 0.74);
+  animation: v-rise 260ms var(--v-ease) both;
+}
+
+/* 原型卡片需要先完成入场动画，再由 effects.js 接管 hover 倾斜。
+   保留入场初态但不让 CSS 动画结束后的 fill-mode 持续覆盖 inline transform。 */
+[data-fx-tilt].v-panel { animation-fill-mode: backwards; }
+
+.analysis-progress-head,
+.analysis-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.analysis-progress-head strong { display: block; margin-top: 4px; font-size: 13.5px; font-weight: 650; }
+.analysis-progress-percent { color: var(--v-cyan-bright); font-family: var(--v-font-mono); font-size: 12px; }
+.analysis-progress-track { height: 8px; margin-top: 16px; overflow: hidden; border-radius: var(--v-r-full); background: rgba(120, 170, 190, 0.13); }
+.analysis-progress-track progress { display: block; width: 100%; height: 8px; border: 0; border-radius: inherit; background: transparent; appearance: none; }
+.analysis-progress-track progress::-webkit-progress-bar { border-radius: inherit; background: rgba(120, 170, 190, 0.13); }
+.analysis-progress-track progress::-webkit-progress-value { border-radius: inherit; background: linear-gradient(90deg, var(--v-cyan-dim), var(--v-cyan), var(--v-magenta)); box-shadow: 0 0 18px -3px var(--v-cyan); transition: width 260ms var(--v-ease); }
+.analysis-progress-track progress::-moz-progress-bar { border-radius: inherit; background: linear-gradient(90deg, var(--v-cyan-dim), var(--v-cyan), var(--v-magenta)); box-shadow: 0 0 18px -3px var(--v-cyan); }
+.analysis-progress.is-indeterminate .analysis-progress-track progress::-webkit-progress-value { animation: analysis-sweep 1.35s var(--v-ease) infinite; }
+.analysis-progress.is-indeterminate .analysis-progress-track progress::-moz-progress-bar { animation: analysis-sweep 1.35s var(--v-ease) infinite; }
+@keyframes analysis-sweep { 0% { transform: translateX(-115%); } 50% { transform: translateX(155%); } 100% { transform: translateX(260%); } }
+.analysis-progress-detail { min-height: 20px; margin: 10px 0 0; color: var(--v-text-2); font-size: 12px; line-height: 1.55; }
+.analysis-progress-meta { margin-top: 6px; color: var(--v-text-4); font-family: var(--v-font-mono); font-size: 10px; }
+
+.analysis-summary-grid { padding: 18px 20px; }
+.analysis-summary-grid dd { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.analysis-report { margin-top: 12px; }
+.analysis-report > summary { list-style: none; }
+.analysis-report > summary::-webkit-details-marker { display: none; }
+.analysis-report[open] .v-drawer-body { grid-template-rows: 1fr; }
+.analysis-report[open] .v-drawer-chevron { transform: rotate(180deg); }
+.analysis-report-output { max-height: 320px; margin: 0; overflow: auto; color: var(--v-text-2); font: 11px/1.65 var(--v-font-mono); white-space: pre-wrap; word-break: break-word; }
+
+.v-conn.is-offline { border-color: rgba(255, 107, 138, 0.45); color: #ffb3c4; }
+.v-conn.is-offline .v-conn-dot { background: var(--v-rose); box-shadow: 0 0 10px var(--v-rose); }
+
+.v-quota-row.analysis-disabled .v-quota-fill { width: 100%; background: linear-gradient(90deg, #5b3042, var(--v-rose)); box-shadow: 0 0 12px -2px rgba(255, 107, 138, 0.55); opacity: .58; }
+.v-quota-row.analysis-mode .v-quota-fill { width: 100%; }
+
+@media (max-width: 768px) {
+  .v-file-drop { min-height: 68px; }
+  .v-file-button { display: none; }
+  .analysis-summary-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 480px) {
+  .v-file-drop { gap: 9px; padding: 10px; }
+  .v-file-icon { width: 32px; height: 32px; font-size: 18px; }
+  .analysis-progress { padding: 15px 14px 13px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .analysis-progress.is-indeterminate .analysis-progress-track progress::-webkit-progress-value,
+  .analysis-progress.is-indeterminate .analysis-progress-track progress::-moz-progress-bar { animation: none; }
+  .analysis-progress-track progress::-webkit-progress-value { transition: none; }
+}
+.analysis-action-choice { margin-top: 18px; padding: 15px; border: 1px solid rgba(84, 227, 240, .26); border-radius: 10px; background: linear-gradient(145deg, rgba(0, 229, 255, .06), rgba(3, 14, 27, .78)); }
+.analysis-action-choice[hidden] { display: none !important; }
+.analysis-action-choice-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.analysis-action-choice-grid .v-btn { min-height: 40px; }
+@media (max-width: 680px) { .analysis-action-choice-grid { grid-template-columns: 1fr; } }

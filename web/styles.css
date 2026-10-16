@@ -1,0 +1,1948 @@
+/* ============================================================================
+   VRCA 解绑门户 · 新视觉系统
+   ----------------------------------------------------------------------------
+   设计语言：Neon HUD（沿用原版青 / 洋红基因，重构层级与用色纪律）
+   核心原则：
+     1. 颜色有纪律 —— 青色=品牌与主操作，绿色=可用状态，琥珀=风险警示，
+        红色=错误，洋红=装饰点缀（不再与主操作抢注意力）
+     2. 层级靠留白与边框浓度，不靠发光堆叠
+     3. 额度是主角 —— 数字极大、极清晰，与「会扣次数」的警示并列
+     4. 霓虹只出现在「有信息量」的地方：状态灯、进度、主按钮、刻度
+   命名：全部使用 v- 前缀，避免与原版样式冲突
+   ========================================================================= */
+
+/* ---------------------------------------------------------------- 1. 令牌 */
+:root {
+  /* 底色：极深冷黑，三层递进 */
+  --v-void: #02040b;
+  --v-bg: #04060f;
+  --v-surface-1: #0a1020;
+  --v-surface-2: #0e1628;
+  --v-surface-3: #131d33;
+
+  /* 霓虹主色（继承原版基因） */
+  --v-cyan: #00e5ff;
+  --v-cyan-bright: #7df6ff;
+  --v-cyan-dim: #1d8fa3;
+  --v-magenta: #ff2bd6;
+  --v-magenta-dim: #8a1a75;
+
+  /* 语义色 */
+  --v-mint: #3ff0ad;
+  --v-mint-dim: #17795a;
+  --v-amber: #ffc043;
+  --v-amber-dim: #8a6519;
+  --v-rose: #ff6b8a;
+
+  /* 文本 */
+  --v-text: #eaf7fb;
+  --v-text-2: #a9c6d0;
+  --v-text-3: #6d8fa0;
+  --v-text-4: #47606e;
+
+  /* 描边 */
+  --v-hairline: rgba(120, 170, 190, 0.13);
+  --v-line: rgba(120, 170, 190, 0.22);
+  --v-line-strong: rgba(0, 229, 255, 0.42);
+
+  /* 发光（克制使用） */
+  --v-glow-cyan: 0 0 0 1px rgba(0, 229, 255, 0.10), 0 0 28px -6px rgba(0, 229, 255, 0.42);
+  --v-glow-mint: 0 0 24px -6px rgba(63, 240, 173, 0.55);
+  --v-glow-amber: 0 0 24px -6px rgba(255, 192, 67, 0.50);
+
+  --v-shadow-lg: 0 40px 90px -30px rgba(0, 0, 0, 0.85), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+  --v-shadow-sm: 0 12px 32px -16px rgba(0, 0, 0, 0.7);
+
+  /* 几何 */
+  --v-r-sm: 8px;
+  --v-r-md: 12px;
+  --v-r-lg: 18px;
+  --v-r-full: 999px;
+
+  --v-font-sans: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+  --v-font-mono: "Cascadia Mono", Consolas, "SFMono-Regular", ui-monospace, monospace;
+
+  --v-shell: 1240px;
+  --v-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  color-scheme: dark;
+}
+
+/* ------------------------------------------------------------ 2. 基础重置 */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html {
+  min-height: 100%;
+  background: var(--v-void);
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  color: var(--v-text);
+  font-family: var(--v-font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+/* 背景：网格 + 双色天光。替代原版的 scanline 全屏条纹叠加 */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 70rem 40rem at 78% -10%, rgba(0, 229, 255, 0.13), transparent 62%),
+    radial-gradient(ellipse 55rem 38rem at 8% 105%, rgba(255, 43, 214, 0.10), transparent 60%),
+    linear-gradient(168deg, var(--v-void) 0%, var(--v-bg) 42%, #06041a 100%);
+}
+
+/* 细网格：给 HUD 一个"坐标纸"底座，透明度极低不干扰阅读 */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image:
+    linear-gradient(rgba(120, 200, 220, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 200, 220, 0.045) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, #000 20%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, #000 20%, transparent 78%);
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { -webkit-tap-highlight-color: transparent; }
+a { color: inherit; }
+
+::selection { background: rgba(0, 229, 255, 0.28); color: #fff; }
+
+:focus-visible {
+  outline: 2px solid var(--v-cyan);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* -------------------------------------------------------------- 3. 布局壳 */
+.v-shell {
+  position: relative;
+  z-index: 1;
+  width: min(var(--v-shell), calc(100% - 48px));
+  margin: 0 auto;
+  padding: 22px 0 40px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ---------------------------------------------------------------- 4. 顶栏 */
+.v-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 60px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--v-hairline);
+}
+
+.v-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 13px;
+  text-decoration: none;
+}
+
+/* 品牌标记：方角徽章 + 内嵌刻度，比纯文字更有"授权服务"的实体感 */
+.v-brand-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--v-line-strong);
+  border-radius: 10px;
+  background: linear-gradient(150deg, rgba(0, 229, 255, 0.16), rgba(0, 229, 255, 0.02));
+  font-family: var(--v-font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--v-cyan-bright);
+  text-shadow: 0 0 14px rgba(0, 229, 255, 0.7);
+  box-shadow: var(--v-glow-cyan);
+}
+
+.v-brand-mark::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border: 1px solid rgba(0, 229, 255, 0.16);
+  border-radius: 14px;
+  clip-path: polygon(0 0, 34% 0, 34% 100%, 0 100%, 0 0, 100% 0, 100% 34%, 0 34%, 0 0);
+  pointer-events: none;
+}
+
+.v-brand-text { display: flex; flex-direction: column; gap: 1px; }
+
+.v-brand-name {
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.v-brand-sub {
+  font-family: var(--v-font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.19em;
+  text-transform: uppercase;
+  color: var(--v-text-4);
+}
+
+/* 顶栏右侧连接状态 */
+.v-conn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 13px 7px 11px;
+  border: 1px solid var(--v-hairline);
+  border-radius: var(--v-r-full);
+  background: rgba(10, 16, 32, 0.6);
+  font-family: var(--v-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--v-text-3);
+}
+
+.v-conn-dot {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--v-mint);
+  box-shadow: var(--v-glow-mint);
+}
+
+/* 心跳：让"连接中"这件事看起来是活的 */
+.v-conn-dot::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid rgba(63, 240, 173, 0.5);
+  animation: v-pulse 2.4s var(--v-ease) infinite;
+}
+
+@keyframes v-pulse {
+  0%   { transform: scale(0.6); opacity: 0.9; }
+  70%  { transform: scale(1.5); opacity: 0; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+/* ----------------------------------------------------------- 5. 主体网格 */
+.v-main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 400px) minmax(0, 1fr);
+  gap: clamp(28px, 4vw, 64px);
+  align-items: start;
+  padding: clamp(36px, 5vw, 66px) 0 48px;
+}
+
+/* --------------------------------------------------- 6. 左栏：主张与说明 */
+.v-aside { position: sticky; top: 28px; }
+
+.v-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 18px;
+  padding: 5px 11px;
+  border: 1px solid rgba(0, 229, 255, 0.22);
+  border-radius: var(--v-r-full);
+  background: rgba(0, 229, 255, 0.05);
+  font-family: var(--v-font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: var(--v-cyan-bright);
+}
+
+.v-eyebrow::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--v-cyan);
+  box-shadow: 0 0 10px var(--v-cyan);
+}
+
+.v-h1 {
+  margin: 0;
+  font-size: clamp(40px, 4.4vw, 58px);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.045em;
+}
+
+/* 标题的第二行用描边字做层次，不额外加颜色 */
+.v-h1 em {
+  display: block;
+  font-style: normal;
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(0, 229, 255, 0.55);
+  text-stroke: 1px rgba(0, 229, 255, 0.55);
+}
+
+.v-lede {
+  max-width: 42ch;
+  margin: 22px 0 0;
+  color: var(--v-text-2);
+  font-size: 14.5px;
+  line-height: 1.85;
+}
+
+/* 流程三步骤：把"还要做什么"提前说清楚 */
+.v-steps {
+  margin: 34px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.v-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 14px;
+  padding: 11px 0;
+}
+
+/* 步骤之间的竖线 */
+.v-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 40px;
+  bottom: -8px;
+  width: 1px;
+  background: linear-gradient(var(--v-line), transparent);
+}
+
+.v-step-num {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--v-line);
+  border-radius: 50%;
+  background: var(--v-surface-1);
+  font-family: var(--v-font-mono);
+  font-size: 11px;
+  color: var(--v-text-3);
+}
+
+.v-step.is-active .v-step-num {
+  border-color: var(--v-cyan);
+  color: var(--v-cyan-bright);
+  box-shadow: var(--v-glow-cyan);
+}
+
+.v-step.is-done .v-step-num {
+  border-color: var(--v-mint-dim);
+  background: rgba(63, 240, 173, 0.12);
+  color: var(--v-mint);
+}
+
+.v-step-title { font-size: 13.5px; font-weight: 620; }
+.v-step-desc { margin-top: 2px; color: var(--v-text-4); font-size: 12px; line-height: 1.6; }
+
+/* 额度速查表：改成横向刻度尺，比三个孤立小卡片更易扫读 */
+.v-quota-ref {
+  margin-top: 34px;
+  padding-top: 22px;
+  border-top: 1px solid var(--v-hairline);
+}
+
+.v-mini-label {
+  display: block;
+  margin-bottom: 14px;
+  font-family: var(--v-font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: var(--v-text-4);
+}
+
+.v-quota-rows { display: flex; flex-direction: column; gap: 11px; }
+
+.v-quota-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  font-size: 12.5px;
+}
+
+.v-quota-row-name { color: var(--v-text-2); font-weight: 600; }
+.v-quota-row-count { font-family: var(--v-font-mono); font-size: 12px; color: var(--v-text-3); white-space: nowrap; }
+
+/* 刻度条状态：让"次数多少"在行内也能读出来 */
+.v-quota-row.is-day .v-quota-fill {
+  background: linear-gradient(90deg, var(--v-cyan-dim), var(--v-cyan));
+  box-shadow: 0 0 12px -2px rgba(0, 229, 255, 0.7);
+}
+
+/* 刻度条：把"额度多少"变成可比较的长度 */
+.v-quota-track {
+  height: 4px;
+  border-radius: var(--v-r-full);
+  background: rgba(120, 170, 190, 0.13);
+  overflow: hidden;
+}
+
+.v-quota-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--v-cyan-dim), var(--v-cyan));
+  box-shadow: 0 0 12px -2px rgba(0, 229, 255, 0.7);
+}
+
+.v-quota-row.is-week .v-quota-fill {
+  background: linear-gradient(90deg, #6a4bd0, #b18cff);
+  box-shadow: 0 0 12px -2px rgba(177, 140, 255, 0.7);
+}
+
+.v-quota-row.is-month .v-quota-fill {
+  background: linear-gradient(90deg, var(--v-magenta-dim), var(--v-magenta));
+  box-shadow: 0 0 12px -2px rgba(255, 43, 214, 0.7);
+}
+
+.v-fineprint {
+  margin: 14px 0 0;
+  font-size: 11px;
+  line-height: 1.65;
+  color: var(--v-text-4);
+}
+
+/* --------------------------------------------------- 7. 主面板（操作区） */
+.v-panel {
+  position: relative;
+  border: 1px solid var(--v-line);
+  border-radius: var(--v-r-lg);
+  background:
+    linear-gradient(165deg, rgba(14, 22, 40, 0.97) 0%, rgba(6, 9, 20, 0.97) 62%),
+    var(--v-surface-1);
+  box-shadow: var(--v-shadow-lg);
+  overflow: hidden;
+}
+
+/* 面板顶部的能量线：一条渐变青线，代替原版的圆形装饰 */
+.v-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--v-cyan) 22%, var(--v-magenta) 78%, transparent);
+  opacity: 0.75;
+}
+
+/* 四角刻度：HUD 的签名细节，纯装饰且不抢注意力 */
+.v-corner {
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  pointer-events: none;
+}
+
+.v-corner.tl { top: 12px; left: 12px; border-right: 0; border-bottom: 0; border-radius: 4px 0 0 0; }
+.v-corner.tr { top: 12px; right: 12px; border-left: 0; border-bottom: 0; border-radius: 0 4px 0 0; }
+.v-corner.bl { bottom: 12px; left: 12px; border-right: 0; border-top: 0; border-radius: 0 0 0 4px; }
+.v-corner.br { bottom: 12px; right: 12px; border-left: 0; border-top: 0; border-radius: 0 0 4px 0; }
+
+.v-panel-inner { padding: clamp(24px, 3vw, 38px); }
+
+.v-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 26px;
+}
+
+.v-panel-kicker {
+  margin: 0 0 7px;
+  font-family: var(--v-font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: var(--v-magenta);
+}
+
+.v-h2 { margin: 0; font-size: 21px; font-weight: 650; letter-spacing: -0.02em; }
+
+/* 会话编号：等宽、低对比，提供"这是一个正式会话"的实感 */
+.v-session-tag {
+  flex: 0 0 auto;
+  padding: 6px 11px;
+  border: 1px solid var(--v-hairline);
+  border-radius: var(--v-r-full);
+  background: rgba(4, 8, 18, 0.7);
+  font-family: var(--v-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--v-text-4);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------ 8. 状态指示条 */
+.v-note {
+  display: grid;
+  grid-template-columns: 9px minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--v-line);
+  border-radius: var(--v-r-md);
+  background: rgba(4, 8, 18, 0.66);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--v-text-2);
+  transition: border-color 220ms var(--v-ease), background 220ms var(--v-ease), color 220ms var(--v-ease);
+}
+
+.v-note-dot {
+  width: 9px;
+  height: 9px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--v-text-4);
+  box-shadow: 0 0 10px rgba(109, 143, 160, 0.6);
+}
+
+.v-note strong { display: block; margin-bottom: 2px; font-size: 12.5px; font-weight: 650; }
+.v-note small { display: block; margin-top: 3px; font-size: 11.5px; color: currentColor; opacity: 0.72; }
+
+.v-note.is-loading {
+  border-color: rgba(0, 229, 255, 0.34);
+  background: rgba(0, 229, 255, 0.05);
+  color: var(--v-cyan-bright);
+}
+.v-note.is-loading .v-note-dot { background: var(--v-cyan); box-shadow: 0 0 14px var(--v-cyan); animation: v-blink 1.1s steps(2, end) infinite; }
+
+.v-note.is-success {
+  border-color: rgba(63, 240, 173, 0.34);
+  background: rgba(63, 240, 173, 0.05);
+  color: #a6ffd8;
+}
+.v-note.is-success .v-note-dot { background: var(--v-mint); box-shadow: var(--v-glow-mint); }
+
+.v-note.is-warning {
+  border-color: rgba(255, 192, 67, 0.36);
+  background: rgba(255, 192, 67, 0.055);
+  color: #ffdd97;
+}
+.v-note.is-warning .v-note-dot { background: var(--v-amber); box-shadow: var(--v-glow-amber); }
+
+.v-note.is-error {
+  border-color: rgba(255, 107, 138, 0.38);
+  background: rgba(255, 107, 138, 0.06);
+  color: #ffb3c4;
+}
+.v-note.is-error .v-note-dot { background: var(--v-rose); box-shadow: 0 0 14px rgba(255, 107, 138, 0.7); }
+
+@keyframes v-blink { 50% { opacity: 0.35; } }
+
+/* --------------------------------------------------------- 9. 折叠区块 */
+/* 把次要输入收进抽屉：默认界面只留一条主动作路径 */
+.v-drawer {
+  margin-top: 12px;
+  border: 1px solid var(--v-hairline);
+  border-radius: var(--v-r-md);
+  background: rgba(4, 8, 18, 0.5);
+  overflow: hidden;
+}
+
+.v-drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: var(--v-text-2);
+  transition: background 160ms var(--v-ease), color 160ms var(--v-ease);
+}
+
+.v-drawer-head:hover { background: rgba(0, 229, 255, 0.045); color: var(--v-text); }
+
+.v-drawer-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--v-line);
+  border-radius: 7px;
+  font-family: var(--v-font-mono);
+  font-size: 12px;
+  color: var(--v-cyan);
+}
+
+.v-drawer-text { flex: 1; min-width: 0; }
+.v-drawer-title { font-size: 13px; font-weight: 620; }
+.v-drawer-hint { font-size: 11px; color: var(--v-text-4); }
+
+.v-drawer-chevron {
+  flex: 0 0 auto;
+  color: var(--v-text-4);
+  transition: transform 220ms var(--v-ease);
+}
+
+.v-drawer.is-open .v-drawer-chevron { transform: rotate(180deg); }
+
+.v-drawer-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 260ms var(--v-ease);
+}
+
+.v-drawer.is-open .v-drawer-body { grid-template-rows: 1fr; }
+
+.v-drawer-body > div { overflow: hidden; }
+
+.v-drawer-content {
+  padding: 4px 16px 18px;
+  border-top: 1px solid var(--v-hairline);
+  margin-top: 2px;
+}
+
+/* ------------------------------------------------------------ 10. 表单 */
+.v-field + .v-field { margin-top: 16px; }
+
+.v-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12.5px;
+  font-weight: 620;
+  color: var(--v-text-2);
+}
+
+.v-label-tag {
+  padding: 2px 7px;
+  border: 1px solid var(--v-hairline);
+  border-radius: var(--v-r-full);
+  font-family: var(--v-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--v-text-4);
+}
+
+.v-inline { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); gap: 10px; }
+
+.v-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--v-line);
+  border-radius: var(--v-r-md);
+  background: rgba(2, 6, 15, 0.85);
+  transition: border-color 170ms var(--v-ease), box-shadow 170ms var(--v-ease), background 170ms var(--v-ease);
+}
+
+.v-control:focus-within {
+  border-color: var(--v-cyan);
+  background: rgba(2, 8, 18, 0.95);
+  box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.1), 0 0 26px -10px rgba(0, 229, 255, 0.8);
+}
+
+.v-control.is-invalid {
+  border-color: rgba(255, 107, 138, 0.6);
+  box-shadow: 0 0 0 3px rgba(255, 107, 138, 0.1);
+}
+
+.v-control select,
+.v-control input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 13.5px;
+}
+
+.v-control input {
+  font-family: var(--v-font-mono);
+  letter-spacing: 0.06em;
+}
+
+.v-control input::placeholder { color: var(--v-text-4); letter-spacing: 0.02em; }
+
+.v-control select {
+  padding-right: 40px;
+  appearance: none;
+  cursor: pointer;
+}
+
+/* ------------------------------------- 10.1 工具选择器（自定义 listbox）
+   原生 select 的系统弹出层是绘制在浏览器/操作系统层上的，CSS 完全管不到，
+   在深色玻璃界面上会露出一块白底灰字 —— 这就是"格格不入"的来源。
+   方案：select 保留在 DOM 里（取值 + 表单语义 + el['card-app'] 契约不变），
+   但视觉上隐藏，改由 .v-app-menu 这套自定义列表承担外观与键盘交互。 */
+
+/* 原生 select：视觉隐藏但仍可被程序读写与聚焦。
+   不用 display:none —— 那会让它无法聚焦，也让部分读屏直接忽略。
+   选择器必须写成 .v-control .v-sr-select：上面的 `.v-control select`
+   带 (0,1,1) 的特异度，只用单个类名压不住它的 width/min-height/padding。 */
+.v-control .v-sr-select {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* 触发器：接管整个控件框，成为唯一可点区域 */
+.v-app-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--v-text);
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: color 160ms var(--v-ease);
+}
+
+.v-app-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 180ms var(--v-ease);
+}
+
+/* 未选择时是占位态：降一级灰度，和"已选"形成明确区分 */
+.v-app-value[data-empty="true"] { color: var(--v-text-4); }
+
+.v-app-count {
+  flex: 0 0 auto;
+  font-family: var(--v-font-mono);
+  font-size: 11px;
+  color: var(--v-cyan);
+  opacity: 0.75;
+}
+
+.v-app-caret { flex: 0 0 auto; color: var(--v-cyan); transition: transform 220ms var(--v-ease); }
+
+.v-app-trigger[aria-expanded="true"] .v-app-caret { transform: rotate(180deg); }
+
+.v-app-trigger:focus-visible { outline: 2px solid var(--v-cyan); outline-offset: 2px; }
+
+/* 校验失败：描边红由 .v-control.is-invalid 负责，这里只补触发器自身的可读性 */
+.v-app-trigger.is-invalid { color: #ff9db2; }
+
+/* 菜单：被 JS portal 到 <body>，所以用 fixed 相对视口定位（左/上由 JS 写内联）。
+   这样它不会被 .v-drawer-body 的 overflow:hidden 裁掉，也不会被
+   [data-fx-tilt] 的 3D 变换拖进另一个坐标空间。 */
+.v-app-menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 220px;
+  max-height: 264px;
+  padding: 6px;
+  border: 1px solid var(--v-line);
+  border-radius: var(--v-r-md);
+  background:
+    linear-gradient(180deg, rgba(14, 22, 40, 0.98), rgba(6, 11, 22, 0.99));
+  box-shadow: var(--v-shadow-lg), 0 0 40px -18px rgba(0, 229, 255, 0.65);
+  backdrop-filter: blur(14px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  animation: v-menu-in 180ms var(--v-ease) both;
+}
+
+/* 向上翻转时让入场方向也反过来，避免"从下方长出来却出现在上方"的错位感 */
+.v-app-menu.is-flipped { animation-name: v-menu-in-up; }
+
+@keyframes v-menu-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes v-menu-in-up {
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+/* 菜单内部滚动条：默认的太亮，会破坏深色界面的一致性 */
+.v-app-menu::-webkit-scrollbar { width: 8px; }
+.v-app-menu::-webkit-scrollbar-track { background: transparent; }
+.v-app-menu::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: var(--v-r-full);
+  background: rgba(120, 170, 190, 0.28);
+  background-clip: content-box;
+}
+
+.v-app-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  border-radius: var(--v-r-sm);
+  font-size: 13px;
+  color: var(--v-text-2);
+  cursor: pointer;
+  outline: 0;
+  transition: background 140ms var(--v-ease), color 140ms var(--v-ease);
+}
+
+/* 键盘高亮：光标跟随（.is-highlighted）与鼠标悬停共用同一套视觉，
+   保证"当前会被 Enter 选中的那一项"在任何输入方式下都是同一个 */
+.v-app-option.is-highlighted,
+.v-app-option:hover {
+  background: rgba(0, 229, 255, 0.09);
+  color: var(--v-text);
+}
+
+.v-app-option-key {
+  flex: 0 0 auto;
+  width: 12px;
+  font-size: 9px;
+  color: var(--v-text-4);
+  transition: color 140ms var(--v-ease);
+}
+
+.v-app-option.is-highlighted .v-app-option-key { color: var(--v-cyan); }
+
+.v-app-option-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 已选项：左侧一道青色短标 + 字色提亮，不用勾号（勾号在窄列里挤） */
+.v-app-option.is-selected {
+  color: var(--v-cyan-bright);
+  background: rgba(0, 229, 255, 0.06);
+  box-shadow: inset 2px 0 0 0 var(--v-cyan);
+}
+
+.v-app-option.is-selected .v-app-option-key { color: var(--v-cyan); }
+
+/* 输入框尾部动作（如显示/隐藏卡密） */
+.v-affix {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  margin-right: 3px;
+  border: 0;
+  border-radius: var(--v-r-sm);
+  background: transparent;
+  color: var(--v-text-4);
+  cursor: pointer;
+  transition: color 150ms var(--v-ease), background 150ms var(--v-ease);
+}
+
+.v-affix:hover { background: rgba(0, 229, 255, 0.08); color: var(--v-cyan); }
+
+.v-help {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: var(--v-text-4);
+}
+
+.v-help.is-caution { color: #d9a94a; }
+
+/* 行内校验提示：字段级错误，与顶部 form-error 区分开 */
+.v-field-error {
+  margin: 7px 0 0;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: #ff9db2;
+}
+
+/* ----------------------------------------------------------- 11. 按钮 */
+.v-actions { display: flex; gap: 10px; margin-top: 22px; }
+
+.v-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 0 22px;
+  border-radius: var(--v-r-md);
+  border: 1px solid transparent;
+  /* 涟漪与流动光带都靠这个裁掉溢出部分 */
+  overflow: hidden;
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  transition: transform 150ms var(--v-ease), box-shadow 150ms var(--v-ease),
+              border-color 150ms var(--v-ease), background 150ms var(--v-ease), opacity 150ms var(--v-ease);
+}
+
+.v-btn-block { width: 100%; }
+
+/* 主按钮：实心青，全站唯一的"实心高亮"元素 */
+.v-btn-primary {
+  color: #02131a;
+  background: linear-gradient(105deg, var(--v-cyan) 0%, #7cf7ff 100%);
+  box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.4), 0 14px 32px -14px rgba(0, 229, 255, 0.75);
+}
+
+.v-btn-primary:not(:disabled):hover {
+  box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.6), 0 18px 40px -14px rgba(0, 229, 255, 0.95);
+}
+
+.v-btn-primary:not(:disabled):active { transform: translateY(1px); }
+
+/* 危险按钮：只用在"确认解绑"这一步 */
+.v-btn-danger {
+  color: #210208;
+  background: linear-gradient(105deg, var(--v-amber) 0%, #ffd984 100%);
+  box-shadow: 0 0 0 1px rgba(255, 192, 67, 0.4), 0 14px 32px -14px rgba(255, 192, 67, 0.7);
+}
+
+.v-btn-danger:not(:disabled):hover {
+  box-shadow: 0 0 0 1px rgba(255, 192, 67, 0.62), 0 18px 40px -14px rgba(255, 192, 67, 0.95);
+}
+
+.v-btn-ghost {
+  color: var(--v-text-2);
+  border-color: var(--v-line);
+  background: rgba(8, 14, 28, 0.7);
+}
+
+.v-btn-ghost:not(:disabled):hover {
+  border-color: rgba(0, 229, 255, 0.5);
+  color: var(--v-text);
+  background: rgba(0, 229, 255, 0.06);
+}
+
+.v-btn-quiet {
+  color: var(--v-text-4);
+  border-color: transparent;
+  background: transparent;
+  font-weight: 500;
+}
+
+.v-btn-quiet:not(:disabled):hover { color: var(--v-text-2); background: rgba(120, 170, 190, 0.07); }
+
+.v-btn:disabled { cursor: not-allowed; opacity: 0.4; }
+
+/* 忙碌态：spinner 内联在标签前，尺寸与文字基线对齐 */
+.v-spinner {
+  display: none;
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(2, 19, 26, 0.28);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: v-spin 640ms linear infinite;
+}
+
+.v-btn.is-busy .v-spinner { display: block; }
+.v-btn.is-busy .v-btn-label { opacity: 0.8; }
+
+@keyframes v-spin { to { transform: rotate(360deg); } }
+
+/* --------------------------------------------------- 12. 状态卡（核心） */
+.v-status {
+  margin-top: 24px;
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  border-radius: var(--v-r-md);
+  background: linear-gradient(175deg, rgba(9, 15, 30, 0.92), rgba(4, 7, 17, 0.92));
+  overflow: hidden;
+  animation: v-rise 320ms var(--v-ease) both;
+}
+
+@keyframes v-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.v-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--v-hairline);
+  background: rgba(0, 229, 255, 0.035);
+}
+
+.v-status-title { font-size: 14px; font-weight: 650; }
+.v-status-kicker {
+  font-family: var(--v-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: var(--v-text-4);
+}
+
+/* 状态徽章：颜色即语义 */
+.v-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border: 1px solid var(--v-line);
+  border-radius: var(--v-r-full);
+  background: rgba(4, 8, 18, 0.8);
+  font-family: var(--v-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  color: var(--v-text-3);
+  white-space: nowrap;
+}
+
+.v-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.v-badge.is-pending { color: var(--v-text-3); }
+.v-badge.is-ready { border-color: rgba(255, 192, 67, 0.5); background: rgba(255, 192, 67, 0.09); color: #ffd984; }
+.v-badge.is-blocked { border-color: rgba(255, 107, 138, 0.45); background: rgba(255, 107, 138, 0.08); color: #ff9db2; }
+.v-badge.is-done { border-color: rgba(63, 240, 173, 0.48); background: rgba(63, 240, 173, 0.09); color: #8dffcb; }
+
+/* 额度数字：本页视觉焦点 */
+.v-quota-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 20px;
+  align-items: center;
+  padding: 22px 20px;
+  border-bottom: 1px solid var(--v-hairline);
+}
+
+.v-quota-number {
+  font-family: var(--v-font-mono);
+  font-size: 54px;
+  font-weight: 700;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  color: var(--v-cyan-bright);
+  text-shadow: 0 0 34px rgba(0, 229, 255, 0.45);
+}
+
+.v-quota-number.is-zero { color: var(--v-rose); text-shadow: 0 0 34px rgba(255, 107, 138, 0.45); }
+.v-quota-number small { font-size: 20px; font-weight: 600; letter-spacing: 0; margin-left: 2px; }
+
+.v-quota-meta { min-width: 0; }
+.v-quota-caption {
+  font-family: var(--v-font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: var(--v-text-4);
+}
+
+.v-quota-detail { margin-top: 5px; font-size: 13px; color: var(--v-text-2); }
+
+/* 剩余额度进度条：一眼看出"用了多少" */
+.v-quota-meter {
+  margin-top: 11px;
+  height: 5px;
+  border-radius: var(--v-r-full);
+  background: rgba(120, 170, 190, 0.14);
+  overflow: hidden;
+}
+
+.v-quota-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--v-cyan-dim), var(--v-cyan));
+  box-shadow: 0 0 14px -2px rgba(0, 229, 255, 0.8);
+  transition: width 420ms var(--v-ease);
+}
+
+.v-quota-meter.is-low > span {
+  background: linear-gradient(90deg, var(--v-amber-dim), var(--v-amber));
+  box-shadow: 0 0 14px -2px rgba(255, 192, 67, 0.8);
+}
+
+/* 明细网格 */
+.v-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--v-hairline);
+}
+
+.v-grid > div {
+  padding: 15px 20px;
+  background: rgba(6, 10, 22, 0.75);
+}
+
+.v-grid dt {
+  font-family: var(--v-font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--v-text-4);
+}
+
+.v-grid dd {
+  margin: 6px 0 0;
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.v-grid dd.is-mono {
+  font-family: var(--v-font-mono);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* 明细值的状态修饰 */
+.v-grid dd.is-strong { color: var(--v-cyan-bright); font-weight: 650; }
+.v-grid dd.is-muted { color: var(--v-text-4); font-weight: 500; }
+
+.v-status-msg {
+  padding: 16px 20px;
+  border-top: 1px solid var(--v-hairline);
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--v-text-2);
+}
+
+.v-status-msg.is-warning { color: #ffdd97; }
+.v-status-msg.is-success { color: #a6ffd8; }
+.v-status-msg strong { color: inherit; }
+
+.v-status-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  border-top: 1px solid var(--v-hairline);
+  background: rgba(2, 5, 13, 0.6);
+}
+
+/* 会话倒计时：给"限时链接"一个可见的时间压力 */
+.v-countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--v-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--v-text-4);
+}
+
+.v-countdown.is-urgent { color: #ffb3c4; }
+
+.v-countdown-bar {
+  width: 62px;
+  height: 3px;
+  border-radius: var(--v-r-full);
+  background: rgba(120, 170, 190, 0.16);
+  overflow: hidden;
+}
+
+.v-countdown-bar > span {
+  display: block;
+  height: 100%;
+  background: currentColor;
+  transition: width 1s linear;
+}
+
+.v-status-foot .v-actions { margin: 0; }
+
+/* ------------------------------------------------------ 13. 错误与提示 */
+.v-alert {
+  display: flex;
+  gap: 11px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 107, 138, 0.36);
+  border-radius: var(--v-r-md);
+  background: rgba(255, 107, 138, 0.07);
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: #ffb3c4;
+  animation: v-rise 240ms var(--v-ease) both;
+}
+
+.v-alert-icon { flex: 0 0 auto; font-family: var(--v-font-mono); }
+
+/* 结果横幅（解绑成功） */
+.v-result {
+  display: flex;
+  gap: 14px;
+  padding: 18px 20px;
+  border: 1px solid rgba(63, 240, 173, 0.4);
+  border-radius: var(--v-r-md);
+  background: linear-gradient(120deg, rgba(63, 240, 173, 0.1), rgba(63, 240, 173, 0.02));
+  box-shadow: var(--v-glow-mint);
+  animation: v-rise 300ms var(--v-ease) both;
+}
+
+.v-result-mark {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(63, 240, 173, 0.5);
+  border-radius: 50%;
+  color: var(--v-mint);
+  font-size: 17px;
+}
+
+.v-result-title { font-size: 14px; font-weight: 650; color: #8dffcb; }
+.v-result-text { margin-top: 3px; font-size: 12.5px; line-height: 1.65; color: var(--v-text-2); }
+
+/* 页脚隐私声明 */
+.v-privacy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin: 22px 0 0;
+  font-family: var(--v-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  color: var(--v-text-4);
+  text-align: center;
+  flex-wrap: wrap;
+}
+
+.v-privacy span { color: rgba(255, 43, 214, 0.75); }
+
+/* ------------------------------------------------------------ 14. 页脚 */
+.v-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-top: 20px;
+  border-top: 1px solid var(--v-hairline);
+  font-family: var(--v-font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--v-text-4);
+}
+
+.v-footer-dot { color: var(--v-magenta); }
+
+/* ------------------------------------------------- 15. 确认弹窗（重设计） */
+/* 原版是普通确认框。新版做成"三步不可逆操作"的最后闸门：
+   顶部琥珀警示条 + 大字额度对比 + 明示后果清单 */
+.v-modal {
+  width: min(468px, calc(100% - 32px));
+  padding: 0;
+  border: 1px solid rgba(255, 192, 67, 0.42);
+  border-radius: var(--v-r-lg);
+  background: var(--v-surface-1);
+  color: var(--v-text);
+  box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.9);
+  overflow: hidden;
+}
+
+.v-modal::backdrop {
+  background: rgba(1, 3, 9, 0.82);
+  backdrop-filter: blur(6px) saturate(0.8);
+}
+
+.v-modal-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 20px;
+  background: linear-gradient(90deg, rgba(255, 192, 67, 0.2), rgba(255, 192, 67, 0.05));
+  border-bottom: 1px solid rgba(255, 192, 67, 0.28);
+  font-family: var(--v-font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #ffd984;
+}
+
+.v-modal-strip::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--v-amber);
+  box-shadow: var(--v-glow-amber);
+}
+
+.v-modal-body { padding: 24px 24px 20px; }
+.v-modal h2 { margin: 0; font-size: 20px; font-weight: 680; letter-spacing: -0.02em; }
+
+.v-modal-lede {
+  margin: 13px 0 0;
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--v-text-2);
+}
+
+/* 后果清单：把"会发生什么"逐条列出，减少误操作 */
+.v-consequences {
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.v-consequences li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 10px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--v-text-2);
+}
+
+.v-consequences li::before {
+  content: "▸";
+  color: var(--v-amber);
+  font-size: 11px;
+}
+
+/* 额度变化对比：3 次 → 2 次 */
+.v-delta {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 16px 18px;
+  border: 1px solid var(--v-hairline);
+  border-radius: var(--v-r-md);
+  background: rgba(2, 6, 15, 0.72);
+}
+
+.v-delta-side { text-align: center; }
+.v-delta-label {
+  font-family: var(--v-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--v-text-4);
+}
+.v-delta-value {
+  margin-top: 4px;
+  font-family: var(--v-font-mono);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--v-text-2);
+}
+.v-delta-side.is-after .v-delta-value { color: var(--v-cyan-bright); }
+.v-delta-side.is-after .v-delta-value.is-consumed { color: var(--v-amber); }
+.v-delta-arrow { color: var(--v-amber); font-size: 15px; }
+
+.v-modal-actions {
+  display: flex;
+  gap: 10px;
+  padding: 18px 24px 22px;
+  border-top: 1px solid var(--v-hairline);
+  background: rgba(2, 5, 13, 0.45);
+}
+
+.v-modal-actions .v-btn { flex: 1; }
+
+/* ------------------------------------------------------- 16. 演示工具条 */
+/* 仅用于展示各状态，正式环境整块删除 */
+.v-demo {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 50;
+  width: min(330px, calc(100vw - 36px));
+  border: 1px solid var(--v-line);
+  border-radius: var(--v-r-md);
+  background: rgba(6, 10, 22, 0.96);
+  box-shadow: var(--v-shadow-lg);
+  backdrop-filter: blur(10px);
+  font-size: 12px;
+  overflow: hidden;
+}
+
+.v-demo-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 13px;
+  border-bottom: 1px solid var(--v-hairline);
+  background: rgba(0, 229, 255, 0.05);
+  font-family: var(--v-font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--v-cyan-bright);
+  cursor: pointer;
+  user-select: none;
+}
+
+.v-demo-body { display: flex; flex-wrap: wrap; gap: 7px; padding: 13px; }
+.v-demo.is-collapsed .v-demo-body { display: none; }
+
+.v-demo-btn {
+  padding: 6px 11px;
+  border: 1px solid var(--v-line);
+  border-radius: var(--v-r-full);
+  background: rgba(8, 14, 28, 0.8);
+  color: var(--v-text-3);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 150ms var(--v-ease);
+}
+
+.v-demo-btn:hover { border-color: rgba(0, 229, 255, 0.5); color: var(--v-text); }
+.v-demo-btn.is-active { border-color: var(--v-cyan); background: rgba(0, 229, 255, 0.13); color: var(--v-cyan-bright); }
+
+.v-demo-note {
+  flex: 1 0 100%;
+  margin-top: 3px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--v-hairline);
+  font-size: 10.5px;
+  line-height: 1.6;
+  color: var(--v-text-4);
+}
+
+/* 无 JS 提示 */
+.v-noscript {
+  position: fixed;
+  inset: 18px;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  border: 1px solid var(--v-rose);
+  border-radius: var(--v-r-md);
+  background: #1a0810;
+  color: #ffd5de;
+  text-align: center;
+}
+
+.v-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+[hidden] { display: none !important; }
+
+/* --------------------------------------------------------- 17. 响应式 */
+/* 1024px：收起粘性侧栏，左右比例重分 */
+@media (max-width: 1024px) {
+  .v-main { grid-template-columns: 1fr; gap: 34px; padding-top: 40px; }
+  .v-aside { position: static; }
+  .v-h1 { font-size: clamp(38px, 8vw, 52px); }
+  .v-steps { flex-direction: row; flex-wrap: wrap; gap: 10px; }
+  .v-step { flex: 1 1 200px; grid-template-columns: 26px minmax(0, 1fr); }
+  .v-step:not(:last-child)::after { display: none; }
+  .v-step-num { width: 26px; height: 26px; }
+}
+
+/* 768px：手机上先给操作区，说明后置 */
+@media (max-width: 768px) {
+  .v-shell { width: calc(100% - 32px); padding-top: 16px; }
+  .v-main { gap: 28px; padding: 28px 0 36px; }
+
+  /* 关键：操作面板提到说明之前 */
+  .v-aside { order: 2; }
+  .v-panel { order: 1; }
+
+  .v-lede { font-size: 13.5px; }
+  .v-panel-inner { padding: 22px 18px; }
+  .v-corner { display: none; }
+  .v-quota-number { font-size: 44px; }
+  .v-inline { grid-template-columns: 1fr; }
+  /* 窄屏下工具菜单跟着控件宽度走，不设最小宽度，避免横向溢出 */
+  .v-app-menu { min-width: 0; }
+  .v-grid { grid-template-columns: 1fr; }
+  .v-quota-hero { grid-template-columns: 1fr; gap: 14px; }
+  .v-demo { right: 12px; left: 12px; bottom: 12px; width: auto; }
+}
+
+/* 480px：单列紧凑 */
+@media (max-width: 480px) {
+  .v-brand-sub, .v-conn span { display: none; }
+  .v-conn { padding: 7px 10px; }
+  .v-topbar { min-height: 52px; }
+  .v-h1 { font-size: clamp(32px, 10vw, 40px); }
+  .v-panel-inner { padding: 20px 15px; }
+  .v-actions { flex-direction: column-reverse; }
+  .v-actions .v-btn { width: 100%; }
+  .v-status-foot { flex-direction: column; align-items: stretch; }
+  .v-status-foot .v-actions { flex-direction: column-reverse; }
+  .v-modal-actions { flex-direction: column-reverse; padding: 16px 18px 20px; }
+  .v-modal-body { padding: 20px 18px 18px; }
+  .v-quota-number { font-size: 38px; }
+  .v-delta-value { font-size: 22px; }
+  .v-quota-ref { margin-top: 26px; }
+}
+
+/* ==========================================================================
+   §18 动效层
+   --------------------------------------------------------------------------
+   全部由 effects.js 驱动。这里只负责视觉定义与"动效关闭"时的降级。
+   JS 未加载时（.fx-ready 缺失）页面保持完全静态，不影响可读性。
+   ======================================================================== */
+
+/* ------------------------------------------- 18.1 背景能量场（canvas） */
+.fx-aurora {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.2s var(--v-ease);
+}
+
+.fx-ready .fx-aurora { opacity: 1; }
+
+/* ------------------------------------------- 18.2 光标环境光斑（DOM） */
+/* 刻意放在 z-index 0 —— 与背景网格同层、在 .v-shell（z-index 1）之下。
+   这样光斑只在面板外的留白与左栏文字背后流动，正文永远不被蒙上一层光，
+   既拿到"光标带动环境"的质感，又不牺牲小字可读性。 */
+.fx-aura {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 560px;
+  height: 560px;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(0, 229, 255, 0.16) 0%,
+    rgba(0, 229, 255, 0.07) 32%,
+    rgba(255, 43, 214, 0.035) 56%,
+    transparent 72%
+  );
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+}
+
+/* ------------------------------------------- 18.3 面板 3D 倾斜 */
+/* --fx-gx / --fx-gy 由 JS 写入，驱动内部高光跟随光标。
+   注意：.v-panel 带 overflow:hidden，会成为"分组元素"从而压平 3D，
+   所以这里不做 translateZ 深度，只做旋转 + 轻微放大 + 高光跟随 ——
+   视觉上足够"浮起来"，且不会让内部文字产生模糊。 */
+[data-fx-tilt] {
+  transition: transform 420ms var(--v-ease), box-shadow 320ms var(--v-ease);
+  will-change: transform;
+}
+
+[data-fx-tilt].is-tilting {
+  transition: transform 90ms linear, box-shadow 320ms var(--v-ease);
+  box-shadow: var(--v-shadow-lg), 0 0 60px -24px rgba(0, 229, 255, 0.5);
+}
+
+/* 倾斜时浮出的一层高光：只在 is-tilting 下可见 */
+[data-fx-tilt]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 380ms var(--v-ease);
+  background: radial-gradient(
+    340px circle at var(--fx-gx, 50%) var(--fx-gy, 50%),
+    rgba(0, 229, 255, 0.10),
+    rgba(255, 43, 214, 0.035) 42%,
+    transparent 68%
+  );
+}
+
+[data-fx-tilt].is-tilting::after { opacity: 1; }
+
+/* ------------------------------------------- 18.4 按钮磁性 + 光晕 */
+.v-btn, .v-demo-btn, .v-drawer-head {
+  --fx-mx: 0px;
+  --fx-my: 0px;
+  --fx-bx: 50%;
+  --fx-by: 50%;
+}
+
+.v-btn.is-magnetic,
+.v-demo-btn.is-magnetic {
+  transform: translate3d(var(--fx-mx), var(--fx-my), 0);
+}
+
+/* 磁性态下，按钮内浮起一层跟随光标的高光 */
+.v-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 280ms var(--v-ease);
+  background: radial-gradient(
+    130px circle at var(--fx-bx) var(--fx-by),
+    rgba(255, 255, 255, 0.26),
+    transparent 70%
+  );
+}
+
+.v-btn.is-magnetic::after { opacity: 1; }
+
+/* 按钮内容必须在高光之上 */
+.v-btn > * { position: relative; z-index: 1; }
+
+/* 移动端不做磁性吸附（触屏没有 hover 语义） */
+@media (hover: none) {
+  .v-btn.is-magnetic, .v-demo-btn.is-magnetic { transform: none; }
+}
+
+/* ------------------------------------------- 18.5 点击涟漪 */
+.fx-ripple {
+  position: absolute;
+  z-index: 2;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 68%);
+  transform: scale(0);
+  animation: fx-ripple-out 640ms var(--v-ease) forwards;
+}
+
+@keyframes fx-ripple-out {
+  to { transform: scale(1); opacity: 0; }
+}
+
+/* ------------------------------------------- 18.6 入场错峰显现 */
+.fx-reveal {
+  animation: fx-reveal-in 460ms var(--v-ease) both;
+}
+
+@keyframes fx-reveal-in {
+  from { opacity: 0; transform: translateY(9px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ------------------------------------------- 18.7 状态扫光 */
+.fx-sweep {
+  position: relative;
+  overflow: hidden;
+}
+
+.fx-sweep::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 42%;
+  z-index: 4;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent,
+    rgba(0, 229, 255, 0.34),
+    transparent
+  );
+  animation: fx-sweep-move 880ms var(--v-ease) forwards;
+}
+
+@keyframes fx-sweep-move {
+  from { left: -50%; opacity: 0; }
+  25%  { opacity: 1; }
+  to   { left: 110%; opacity: 0; }
+}
+
+/* ------------------------------------------- 18.8 数字滚动 */
+.v-quota-number.is-counting {
+  color: #fff;
+  text-shadow: 0 0 44px rgba(0, 229, 255, 0.85);
+}
+
+/* ------------------------------------------- 18.9 打字机与光标 */
+.fx-typing { color: var(--v-cyan-bright) !important; }
+
+/* 打字光标：一个等宽下划线块在闪 */
+.fx-caret::after {
+  content: "▌";
+  margin-left: 1px;
+  color: var(--v-cyan);
+  animation: fx-caret-blink 620ms steps(2, end) 3;
+}
+
+@keyframes fx-caret-blink { 50% { opacity: 0; } }
+
+/* ------------------------------------------- 18.10 错误抖动 */
+.fx-shake {
+  animation: fx-shake-kf 460ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes fx-shake-kf {
+  10%, 90% { transform: translateX(-2px); }
+  20%, 80% { transform: translateX(3px); }
+  30%, 50%, 70% { transform: translateX(-5px); }
+  40%, 60% { transform: translateX(5px); }
+}
+
+/* ------------------------------------------- 18.11 徽章呼吸 */
+/* 可解绑状态：徽章做极缓的呼吸，暗示"这里可以操作" */
+.v-badge.is-ready {
+  animation: fx-badge-breathe 2.6s var(--v-ease) infinite;
+}
+
+@keyframes fx-badge-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 192, 67, 0); }
+  50%      { box-shadow: 0 0 0 4px rgba(255, 192, 67, 0.13); }
+}
+
+/* 已解绑状态：一束光扫过，然后定格 */
+.v-badge.is-done {
+  animation: fx-badge-flash 900ms var(--v-ease) 1;
+}
+
+@keyframes fx-badge-flash {
+  0%   { box-shadow: 0 0 0 0 rgba(63, 240, 173, 0.7); }
+  100% { box-shadow: 0 0 0 14px rgba(63, 240, 173, 0); }
+}
+
+/* ------------------------------------------- 18.12 主按钮流光 */
+/* 一条光带沿主按钮横向循环流动，是页面唯一"持续"的动效 */
+.v-btn-primary::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.55;
+  background: linear-gradient(
+    100deg,
+    transparent 28%,
+    rgba(255, 255, 255, 0.55) 48%,
+    transparent 68%
+  );
+  background-size: 260% 100%;
+  animation: fx-shimmer 4.2s linear infinite;
+}
+
+@keyframes fx-shimmer {
+  from { background-position: 180% 0; }
+  to   { background-position: -80% 0; }
+}
+
+/* 危险按钮：不做流光（不该鼓励快速点击），改为边框脉冲 */
+.v-btn-danger:not(:disabled) {
+  animation: fx-danger-pulse 3.4s var(--v-ease) infinite;
+}
+
+@keyframes fx-danger-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(255, 192, 67, 0.4), 0 14px 32px -14px rgba(255, 192, 67, 0.7); }
+  50%      { box-shadow: 0 0 0 1px rgba(255, 192, 67, 0.75), 0 14px 38px -12px rgba(255, 192, 67, 1); }
+}
+
+/* ------------------------------------------- 18.13 额度进度条流光 */
+.v-quota-meter > span {
+  position: relative;
+  overflow: hidden;
+}
+
+.v-quota-meter > span::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.55),
+    transparent
+  );
+  transform: translateX(-100%);
+  animation: fx-meter-sheen 2.8s var(--v-ease) infinite;
+}
+
+@keyframes fx-meter-sheen {
+  0%   { transform: translateX(-100%); }
+  60%  { transform: translateX(100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ------------------------------------------- 18.14 输入框聚焦光带 */
+/* 聚焦时，输入框顶部跑过一道细光，像设备被"扫描" */
+.v-control::after {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(90deg, transparent, var(--v-cyan), transparent);
+  transition: opacity 280ms var(--v-ease);
+}
+
+.v-control:focus-within::after {
+  opacity: 1;
+  animation: fx-scan 2.2s var(--v-ease) infinite;
+}
+
+@keyframes fx-scan {
+  0%, 100% { transform: translateX(-100%); }
+  50%      { transform: translateX(100%); }
+}
+
+/* ------------------------------------------- 18.15 步骤指示器脉冲 */
+.v-step.is-active .v-step-num::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border: 1px solid rgba(0, 229, 255, 0.55);
+  border-radius: 50%;
+  animation: fx-step-pulse 2.4s var(--v-ease) infinite;
+}
+
+.v-step-num { position: relative; }
+
+@keyframes fx-step-pulse {
+  0%   { transform: scale(1); opacity: 0.9; }
+  70%  { transform: scale(1.55); opacity: 0; }
+  100% { transform: scale(1.55); opacity: 0; }
+}
+
+/* ------------------------------------------- 18.16 品牌徽章呼吸光 */
+.v-brand-mark {
+  animation: fx-brand-glow 4.6s var(--v-ease) infinite;
+}
+
+@keyframes fx-brand-glow {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.10), 0 0 28px -6px rgba(0, 229, 255, 0.42); }
+  50%      { box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.22), 0 0 40px -4px rgba(0, 229, 255, 0.78); }
+}
+
+/* ------------------------------------------- 18.17 卡片入场 */
+.v-panel {
+  animation: fx-panel-in 720ms var(--v-ease) both;
+}
+
+@keyframes fx-panel-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.994); }
+  to   { opacity: 1; transform: none; }
+}
+
+.v-aside > * {
+  animation: fx-aside-in 620ms var(--v-ease) both;
+}
+
+.v-aside > *:nth-child(2) { animation-delay: 70ms; }
+.v-aside > *:nth-child(3) { animation-delay: 140ms; }
+.v-aside > *:nth-child(4) { animation-delay: 210ms; }
+.v-aside > *:nth-child(5) { animation-delay: 280ms; }
+
+@keyframes fx-aside-in {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* 左栏视差容器：由 JS 写 transform，需要独立合成层 */
+.v-aside { will-change: transform; }
+
+/* ------------------------------------------- 18.18 演示面板动效 */
+.v-demo-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+/* ------------------------------------------- 18.19 动效全量降级 */
+/* 命中 prefers-reduced-motion 或 JS 未运行：一切归零 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .fx-aurora { display: none; }
+  .fx-aura { display: none; }
+  .fx-burst { display: none; }
+
+  .v-app-menu { animation: none; }
+
+  [data-fx-tilt]::after,
+  .v-btn::after,
+  .v-btn-primary::before,
+  .v-quota-meter > span::after,
+  .v-control::after { display: none; }
+}
+/* Report compatibility: keep the HUD palette and readable evidence boundaries. */
+.analysis-candidate-note { margin: 0; color: var(--v-text-2); font-size: 11px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.analysis-report-warning { margin: 14px 0 0; padding: 11px 13px; border: 1px solid rgba(255, 190, 95, .28); border-radius: var(--v-r-sm); background: rgba(255, 190, 95, .045); color: var(--v-text-2); font-size: 11px; line-height: 1.75; overflow-wrap: anywhere; }
+.analysis-guide-title { font-size: 12px; color: var(--v-text); overflow-wrap: anywhere; }
+.analysis-guide-steps { display: grid; gap: 7px; padding-left: 20px; margin: 3px 0; color: var(--v-text-2); font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; }
+.analysis-guide summary:focus-visible { outline: 2px solid var(--v-cyan-bright); outline-offset: 5px; border-radius: 2px; }

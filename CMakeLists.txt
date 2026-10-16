@@ -4,6 +4,8 @@ project(VrcaLocalAnalysis VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+# A portable worker must not depend on a separately installed VC++ runtime.
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 add_library(vrc_analysis STATIC
     native/src/server_plan_scope.cpp
@@ -37,6 +39,16 @@ if(MINGW)
 endif()
 install(TARGETS VrcAnalysisWorker RUNTIME DESTINATION bin)
 
+if(WIN32)
+    add_executable(VrcaLocalLauncher WIN32 native/src/local_launcher.cpp)
+    target_link_libraries(VrcaLocalLauncher PRIVATE user32)
+    if(MSVC)
+        target_compile_options(VrcaLocalLauncher PRIVATE /utf-8)
+    elseif(MINGW)
+        target_link_options(VrcaLocalLauncher PRIVATE -municode -static)
+    endif()
+endif()
+
 include(CTest)
 if(BUILD_TESTING)
     find_package(Python3 3.10 COMPONENTS Interpreter REQUIRED)
@@ -54,4 +66,8 @@ if(BUILD_TESTING)
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_worker_interface.py"
             "$<TARGET_FILE:VrcAnalysisWorker>")
     set_tests_properties(worker_interface PROPERTIES TIMEOUT 30)
+    add_test(NAME local_web
+        COMMAND "${Python3_EXECUTABLE}" -m unittest discover
+            -s "${CMAKE_CURRENT_SOURCE_DIR}/tests" -p test_local_web.py -v)
+    set_tests_properties(local_web PROPERTIES TIMEOUT 60)
 endif()

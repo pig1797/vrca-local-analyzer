@@ -1,0 +1,12 @@
+# Deliberately omit fmod_toolkit / pyfmodex (audio conversion is not exposed).
+# Install with --no-deps; this is the complete analysis-only Windows set.
+UnityPy==1.25.0
+lz4==4.4.5
+brotli==1.2.0
+Pillow==12.3.0
+texture2ddecoder==1.0.6
+etcpak==0.9.15
+astc-encoder-py==0.1.12
+archspec==0.2.6
+fsspec==2026.9.0
+attrs==26.1.0

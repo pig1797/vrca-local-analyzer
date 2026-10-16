@@ -57,14 +57,21 @@ def analyze_graph(worker: Path, graph: Path, digest: str, timeout: float) -> dic
     return report
 
 
-def analyze(source: Path, worker: Path, timeout: float = 180) -> dict:
+def analyze(source: Path, worker: Path, timeout: float = 180, *, progress=None,
+            menu_callback=None, temp_parent=None) -> dict:
+    notify = progress or (lambda stage: None)
+    notify("hashing")
     digest = sha256(source)
     adapter = ROOT / "python" / "vrca_extract_graph.py"
-    with tempfile.TemporaryDirectory(prefix="vrca-local-") as folder:
+    with tempfile.TemporaryDirectory(prefix="vrca-local-", dir=temp_parent) as folder:
         directory = Path(folder)
         graph = directory / "fast.graph.json"
+        notify("extracting")
         run_stage([sys.executable, str(adapter), "--remote-graph",
                    str(source), str(graph)], timeout)
+        if menu_callback:
+            menu_callback(graph, digest)
+        notify("analyzing")
         report = analyze_graph(worker, graph, digest, timeout)
         deep_passes = 0
         request = report.get("deep_scan_request")
@@ -74,10 +81,13 @@ def analyze(source: Path, worker: Path, timeout: float = 180) -> dict:
             request_path = directory / "deep.request.json"
             request_path.write_text(json.dumps(request, ensure_ascii=False), encoding="utf-8")
             deep_graph = directory / "deep.graph.json"
+            notify("deep_read")
             run_stage([sys.executable, str(adapter), "--remote-deep-from-fast",
                        str(graph), str(request_path), str(source), str(deep_graph)], timeout)
+            notify("deep_analyze")
             report = analyze_graph(worker, deep_graph, digest, timeout)
             deep_passes = 1
+        notify("verifying")
         if sha256(source) != digest:
             raise AnalysisError("输入文件在分析期间发生变化，已拒绝输出。")
         report["local_execution"] = {
@@ -95,7 +105,8 @@ def find_worker(explicit: str | None) -> Path:
         candidates = [Path(explicit).expanduser()]
     else:
         suffix = ".exe" if os.name == "nt" else ""
-        candidates = [ROOT / "build" / ("VrcAnalysisWorker" + suffix),
+        candidates = [ROOT / "bin" / ("VrcAnalysisWorker" + suffix),
+                      ROOT / "build" / ("VrcAnalysisWorker" + suffix),
                       ROOT / "build" / "Release" / ("VrcAnalysisWorker" + suffix)]
     for candidate in candidates:
         if candidate.is_file():

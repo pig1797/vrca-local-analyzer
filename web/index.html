@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VRCA · 本地模型分析</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/analysis.css">
+  <link rel="stylesheet" href="/wheel.css">
+  <link rel="stylesheet" href="/local.css">
+  <script src="/wheel.js" defer></script>
+  <script src="/local.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#panel">跳至模型分析</a>
+  <div class="v-shell">
+    <header class="v-topbar">
+      <a class="v-brand" href="/" aria-label="VRCA 本地分析首页">
+        <span class="v-brand-mark" aria-hidden="true">V</span>
+        <span class="v-brand-text"><span class="v-brand-name">VRCA 本地分析</span><span class="v-brand-sub">LOCAL ANALYSIS · AGPL-3.0</span></span>
+      </a>
+      <div class="local-header-actions"><span class="v-session-tag" id="connection">正在连接本机</span><button class="v-btn v-btn-quiet" id="quit" type="button">退出本地服务</button></div>
+    </header>
+    <main class="v-main">
+      <aside class="v-aside">
+        <p class="v-eyebrow">Your model. Your computer.</p>
+        <h1 class="v-h1">模型分析<em>就在本机</em></h1>
+        <p class="v-lede">熟悉的网页操作，不再依赖服务器。选择 VRCA 文件，即可在自己的电脑上查看密码候选和模型轮盘。</p>
+        <ol class="v-steps" aria-label="分析流程">
+          <li class="v-step is-active" id="step-1"><span class="v-step-num">1</span><span><span class="v-step-title">选择模型</span><span class="v-step-desc">文件只传给本机，不上传互联网</span></span></li>
+          <li class="v-step" id="step-2"><span class="v-step-num">2</span><span><span class="v-step-title">本地分析</span><span class="v-step-desc">提取结构，按需补充深层线索</span></span></li>
+          <li class="v-step" id="step-3"><span class="v-step-num">3</span><span><span class="v-step-title">查看结果</span><span class="v-step-desc">高可信与参考候选分开展示</span></span></li>
+        </ol>
+        <div class="v-quota-ref"><span class="v-mini-label">本地运行</span><p class="v-fineprint">无需卡密，无需登录。原文件不会被修改。完成后临时文件保留 10 分钟，也可立即清理。</p><p class="v-fineprint">此版提供分析与无图标轮盘预览；永久移除和工程导出尚未迁入。</p></div>
+      </aside>
+      <section class="v-panel" id="panel" aria-labelledby="panel-title">
+        <div class="v-panel-inner">
+          <div class="v-panel-head"><div><p class="v-panel-kicker">Local Analysis</p><h2 class="v-h2" id="panel-title">选择模型分析</h2></div><span class="v-session-tag">无需卡密</span></div>
+          <form id="analysis-form">
+            <div class="v-field"><label class="v-label" for="file">VRCA 文件 <span class="v-label-tag">MAX 450 MiB</span></label>
+              <div class="v-file-drop" id="file-drop" tabindex="0" role="button" aria-label="选择或拖放 VRCA 文件" aria-controls="file" aria-describedby="file-help">
+                <input id="file" class="v-file-input" type="file" accept=".vrca" aria-label="选择 VRCA 文件">
+                <span class="v-file-icon" aria-hidden="true">↥</span><span class="v-file-copy"><strong id="file-name">尚未选择 VRCA 文件</strong><small id="file-meta">点击选择，或拖放到这里</small></span><span class="v-file-button">选择文件</span>
+              </div><p class="v-help" id="file-help">仅处理自己拥有或已获授权的模型。文件只在当前电脑上解析。</p>
+            </div>
+            <div class="v-alert" id="form-error" role="alert" hidden><span id="error-text"></span></div>
+            <div class="v-actions analysis-actions"><button class="v-btn v-btn-primary" id="go" type="submit" disabled>开始本地分析</button><button class="v-btn v-btn-quiet" id="clear" type="button" hidden>取消并清理</button></div>
+          </form>
+          <section class="analysis-progress" id="progress-card" aria-labelledby="progress-title" hidden>
+            <div class="analysis-progress-head"><strong id="progress-title" role="status" aria-live="polite">等待开始</strong><span id="elapsed">00:00</span></div>
+            <div class="analysis-progress-track"><progress id="progress" max="100" aria-label="本地处理进度"></progress></div>
+            <p class="analysis-progress-detail" id="progress-detail">提取和分析阶段显示实际阶段，不估算虚假百分比。</p>
+          </section>
+          <section class="v-status" id="result" aria-labelledby="result-title" hidden>
+            <div class="v-status-bar"><h3 id="result-title">分析结果</h3><span class="v-badge is-ready">本机完成</span></div>
+            <p id="result-summary" role="status"></p><p class="analysis-report-warning" id="incomplete" hidden>部分结构证据不足；请保留参考性质，不视为已解锁。</p>
+            <section id="high-group" hidden><h4>高可信密码候选</h4><p class="analysis-result-hint">静态分析高可信，尚未在游戏中验证。</p><ul class="analysis-password-list" id="high-list"></ul></section>
+            <section id="reference-group" hidden><h4>参考候选</h4><p class="analysis-result-hint">证据不完整，不代表已经解出可用密码。</p><ul class="analysis-password-list" id="reference-list"></ul></section>
+            <details class="analysis-guide"><summary>结构特征与手动参考</summary><div id="features"></div></details>
+            <div class="v-actions"><button class="v-btn" id="save" type="button">保存完整报告</button></div>
+            <p class="v-help">报告可能包含密码及模型信息，请私人保存。当前版本不生成永久解锁副本。</p>
+            <details class="analysis-guide"><summary>查看完整 JSON 报告</summary><pre id="report-output"></pre></details>
+          </section>
+          <section class="analysis-feature-card" id="menu-card" hidden><h3>轮盘预览</h3><p class="analysis-result-hint">沿用原网页轮盘。仅模拟菜单输入，不控制游戏，不发送 OSC；此版不提取原始图标。</p><div id="wheel-mount"></div></section>
+        </div>
+      </section>
+    </main>
+    <footer class="local-footer">VRCA Local Analyzer · <a href="https://github.com/pig1797/vrca-local-analyzer" target="_blank" rel="noopener noreferrer">项目源码 / AGPL-3.0</a></footer>
+  </div>
+</body>
+</html>

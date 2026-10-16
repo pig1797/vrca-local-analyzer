@@ -1,0 +1,32 @@
+/* Local adapter for the existing VRCA portal design. No remote fonts/assets. */
+:root { --v-text-3: #9bb6c5; --v-text-4: #9bb6c5; }
+[hidden] { display: none !important; }
+.local-header-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.v-panel { transform: none; }
+.v-panel-inner { min-width: 0; }
+.v-main > * { min-width: 0; }
+.v-lede { max-width: 36ch; }
+.v-btn { min-height: 44px; cursor: pointer; }
+.v-btn:disabled { cursor: not-allowed; }
+:focus-visible { outline: 2px solid var(--v-cyan-bright); outline-offset: 4px; }
+.skip-link { position: absolute; left: 16px; top: -100px; z-index: 10; background: var(--v-surface-1); padding: 12px; }
+.skip-link:focus { top: 12px; }
+.local-footer { padding: 24px 0; color: var(--v-text-2); font-size: 13px; }
+.local-footer a { color: var(--v-cyan-bright); }
+.analysis-password-item, #features, #report-output, #file-name { overflow-wrap: anywhere; }
+#report-output { white-space: pre-wrap; max-height: 440px; overflow: auto; font-size: 13px; }
+.analysis-password-value { user-select: all; }
+.analysis-password-item .v-btn { margin-top: 8px; }
+#elapsed { font-variant-numeric: tabular-nums; color: var(--v-text-2); }
+.v-file-drop.is-dragover { border-color: var(--v-cyan); background: var(--v-surface-2); }
+progress:not([value]) { opacity: .7; }
+@media (max-width: 600px) {
+  .v-topbar { align-items: flex-start; gap: 16px; flex-direction: column; }
+  .local-header-actions { width: 100%; justify-content: space-between; gap: 8px; }
+  .v-brand-name { font-size: 18px; }
+  .v-file-button { display: none; }
+  .analysis-actions { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
