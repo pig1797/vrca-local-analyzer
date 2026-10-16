@@ -110,7 +110,9 @@ def run(worker, graph):
         proc = subprocess.run([worker, 'analyze-graph', str(path.resolve()), '--json'],
                               capture_output=True, text=True, encoding='utf-8', timeout=30)
         if proc.returncode:
-            raise AssertionError('worker failed: ' + proc.stderr[:200])
+            raise AssertionError(f'worker failed (exit={proc.returncode}, '
+                                 f'hex=0x{proc.returncode & 0xffffffff:08x}): '
+                                 + proc.stderr[:200])
         return json.loads(proc.stdout)
 
 

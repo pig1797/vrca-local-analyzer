@@ -20,7 +20,9 @@ def main():
         path.write_text(json.dumps(graph), encoding="utf-8")
         proc = subprocess.run([worker, "analyze-graph", str(path), "--json"],
                               capture_output=True, timeout=20)
-        assert proc.returncode == 0, "Unicode-path analysis failed"
+        assert proc.returncode == 0, (f"Unicode-path analysis failed: "
+            f"exit={proc.returncode}, hex=0x{proc.returncode & 0xffffffff:08x}, "
+            f"stderr={proc.stderr[:200]!r}")
         report = json.loads(proc.stdout)
         assert report["graph_sha256"] == hashlib.sha256(path.read_bytes()).hexdigest()
         assert report["source_sha256"] == graph["source_sha256"]

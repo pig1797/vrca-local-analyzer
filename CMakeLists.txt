@@ -26,6 +26,12 @@ endif()
 
 add_executable(VrcAnalysisWorker native/src/server_worker_main.cpp)
 target_link_libraries(VrcAnalysisWorker PRIVATE vrc_analysis)
+if(MSVC)
+    # MSVC's 1 MiB default overflows (0xc00000fd) even on the small synthetic
+    # graph suite because of the compiled analysis frame. Use one fixed 8 MiB
+    # reserve, matching the usual Linux main-thread budget; no unbounded growth.
+    target_link_options(VrcAnalysisWorker PRIVATE /STACK:8388608)
+endif()
 if(MINGW)
     target_link_options(VrcAnalysisWorker PRIVATE -municode -static)
 endif()

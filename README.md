@@ -18,7 +18,7 @@
 - Python 3.10 或以上；本机验证使用 CPython 3.12.7、UnityPy 1.25.0。
 - CMake 3.20 或以上、C++17 编译器。
 - Windows：Visual Studio 2022 C++ 工具链，或带 Ninja 的 MinGW-w64。
-- Linux：GCC/Clang 和 Ninja。已提供 CI 配置，但发布候选准备期间未在 GitHub 实际运行。
+- Linux：GCC/Clang 和 Ninja。Windows/MSVC 与 Linux/GCC 的干净环境构建和回归见 [GitHub Actions](https://github.com/pig1797/vrca-local-analyzer/actions)，以相应提交的实际运行结果为准。
 
 依赖首次安装需要网络；安装后，所提供的分析代码没有上传、遥测或授权请求。依赖安装器与自选外部组件的行为不属于离线运行保证。
 
@@ -83,7 +83,7 @@ ctest --test-dir build -C Release --output-on-failure
 
 只分析自己拥有或获得授权的文件，不运行 Unity、VRChat 或模型脚本。解析恶意/畸形包仍有风险；建议在低权限隔离环境中处理不受信任的输入。
 
-Windows 提取进程使用现有 Job Object 内存门禁，默认上限 2 GiB；Linux 原生 worker 保留 256 MiB 地址空间、180 秒 CPU 和禁用 core dump 的限制。Python 提取器在 Linux 上没有同等内存门禁，应另用容器或系统资源限制。该项目不是恶意文件安全沙箱。
+Windows 提取进程使用现有 Job Object 内存门禁，默认上限 2 GiB；MSVC 构建的原生 worker 固定预留 8 MiB 栈，避免默认 1 MiB 栈在分析中溢出。Linux 原生 worker 保留 256 MiB 地址空间、180 秒 CPU 和禁用 core dump 的限制。Python 提取器在 Linux 上没有同等内存门禁，应另用容器或系统资源限制。该项目不是恶意文件安全沙箱。
 
 ## 发布与许可证
 
