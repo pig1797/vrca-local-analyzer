@@ -1,0 +1,2 @@
+# Tested with CPython 3.12. Install upstream dependencies; do not vendor binaries.
+UnityPy==1.25.0

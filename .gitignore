@@ -1,0 +1,39 @@
+# Build/runtime products
+/build*/
+/.venv/
+__pycache__/
+*.py[cod]
+/output/
+/reports/
+/dist/
+*.exe
+*.dll
+*.so
+*.dylib
+*.zip
+
+# Customer inputs, extracted assets and analysis outputs are never source.
+*.vrca
+*.vrcw
+*.unitypackage
+*.assetbundle
+*.bundle
+*.db
+*.sqlite*
+*.log
+*.graph.json
+*.report.json
+*.request.json
+
+# Credentials and machine-specific settings
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+*.p12
+id_rsa*
+id_ed25519*
+.ssh/
+.vscode/
+.idea/
