@@ -155,7 +155,7 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
   $('quit').addEventListener('click', async () => {
-    if (!confirm('退出会停止本地分析并清理临时文件。确定退出？')) return;
+    if (job && !confirm('退出会停止本地分析并清理临时文件。确定退出？')) return;
     try {
       await api('/api/shutdown', 'POST'); ++epoch; clearTimeout(poll); clearInterval(timer);
       ready = false; busy = false; report = null; job = ''; wheel.clear();
