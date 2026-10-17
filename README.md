@@ -36,7 +36,7 @@
 
 便携包包含经过固定摘要检查的导出组件。源码仓库不提交第三方二进制或 VRChat SDK 包：
 
-1. CMake 同时构建 `vrca_lzma1ext`，产物自动放入 `bin`。Windows 还需要将可信 XZ Utils 的 `liblzma-5.dll` 放在 `bin`（本机验证为 Git for Windows 所带 XZ 5.8.3）；Linux 安装 `liblzma-dev` 后编译并链接系统 liblzma。
+1. CMake 同时构建 `vrca_lzma1ext`，产物自动放入 `bin`。Windows 还需要将可信 XZ Utils 的 DLL 放在 `bin/liblzma-5.dll`（本机验证为 Git for Windows 所带 XZ 5.8.3；也可用 `vcpkg install liblzma:x64-windows` 构建 release DLL 后按此名放置，不假设所有 Git 安装都带该 DLL）；Linux 安装 `liblzma-dev` 后编译并链接系统 liblzma。
 2. 下载 [AssetRipper 2.0.0](https://github.com/AssetRipper/AssetRipper/releases/tag/2.0.0)，将 Windows x64 官方 ZIP 的 `AssetRipper.GUI.Free.exe` 与 `capstone.dll` 解压到 `tools/AssetRipper/`。官方 ZIP SHA256：`9a7ef0e7c5c3ea5b90b4e6d855e2d98d5f7ec8c3f9e26fccbc194c6a7b01baf7`。Linux x64 使用同版本的官方构建。本地恢复器会核对可执行文件摘要。
 3. 通过 VRChat 官方工具取得 SDK 3.10.4，将 `com.vrchat.base` 与 `com.vrchat.avatars` 两个完整包放到 `tools/sdk/`，保留各自许可证。SDK 属于其自己的使用条款，不适用本项目 AGPL，不要将其上传到源码仓库。
 

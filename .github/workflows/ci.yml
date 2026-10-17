@@ -30,6 +30,12 @@ jobs:
       - name: Install Windows liblzma runtime for codec tests
         if: runner.os == 'Windows'
         shell: pwsh
-        run: Copy-Item -LiteralPath 'C:/Program Files/Git/mingw64/bin/liblzma-5.dll' -Destination bin/liblzma-5.dll
+        run: |
+          $codecVcpkg = Join-Path $env:VCPKG_INSTALLATION_ROOT 'vcpkg.exe'
+          & $codecVcpkg install liblzma:x64-windows
+          if ($LASTEXITCODE -ne 0) { throw 'liblzma build failed' }
+          $codecDlls = @(Get-ChildItem (Join-Path $env:VCPKG_INSTALLATION_ROOT 'installed/x64-windows/bin') -Filter '*lzma*.dll')
+          if ($codecDlls.Count -ne 1) { throw 'expected one release liblzma DLL' }
+          Copy-Item -LiteralPath $codecDlls[0].FullName -Destination bin/liblzma-5.dll
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure

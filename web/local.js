@@ -29,7 +29,7 @@
     const response = await fetch(path, {method, headers: {'X-VRCA-Local': '1', ...(requestBody ? {'Content-Type': 'application/json'} : {})},
       body: requestBody ? JSON.stringify(requestBody) : undefined, cache: 'no-store'});
     const body = await response.json();
-    if (!response.ok) throw new Error(body.error || '本机请求失败，请重试。');
+    if (!response.ok) { const failure = new Error(body.error || '本机请求失败，请重试。'); failure.status = response.status; throw failure; }
     return body;
   }
   function choose(file) {
@@ -134,7 +134,7 @@
     if (xhr) return;
     ++epoch; clearTimeout(poll); clearInterval(timer);
     try { if (job) await api('/api/analyses/' + job, 'DELETE'); }
-    catch (failure) { error(failure.message); busy = false; buttons(); return; }
+    catch (failure) { if (failure.status !== 404) { error(failure.message); busy = false; buttons(); return; } }
     job = ''; report = null; busy = false;
     $('result').hidden = true; $('menu-card').hidden = true; $('progress-card').hidden = true;
     $('operations').hidden = true; $('downloads').replaceChildren(); $('operation-status').textContent = '';
