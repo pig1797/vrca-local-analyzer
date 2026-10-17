@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(VrcaLocalAnalysis VERSION 0.1.0 LANGUAGES CXX)
+project(VrcaLocalAnalysis VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -39,6 +39,21 @@ if(MINGW)
 endif()
 install(TARGETS VrcAnalysisWorker RUNTIME DESTINATION bin)
 
+# Strict known-size LZMA1 decoder used only by writeback and its verifier.
+add_library(vrca_lzma1ext SHARED native/src/vrca_lzma1ext.c)
+target_include_directories(vrca_lzma1ext PRIVATE native/third_party/xz/include)
+if(WIN32)
+    set_target_properties(vrca_lzma1ext PROPERTIES PREFIX "")
+endif()
+if(NOT WIN32)
+    find_package(LibLZMA REQUIRED)
+    target_link_libraries(vrca_lzma1ext PRIVATE LibLZMA::LibLZMA)
+endif()
+add_custom_command(TARGET vrca_lzma1ext POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/bin"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:vrca_lzma1ext>" "${CMAKE_SOURCE_DIR}/bin/")
+install(TARGETS vrca_lzma1ext RUNTIME DESTINATION bin LIBRARY DESTINATION bin)
+
 if(WIN32)
     add_executable(VrcaLocalLauncher WIN32 native/src/local_launcher.cpp)
     target_link_libraries(VrcaLocalLauncher PRIVATE user32)
@@ -70,4 +85,15 @@ if(BUILD_TESTING)
         COMMAND "${Python3_EXECUTABLE}" -m unittest discover
             -s "${CMAKE_CURRENT_SOURCE_DIR}/tests" -p test_local_web.py -v)
     set_tests_properties(local_web PROPERTIES TIMEOUT 60)
+    add_test(NAME project_restore
+        COMMAND "${Python3_EXECUTABLE}" -m unittest discover
+            -s "${CMAKE_CURRENT_SOURCE_DIR}/tests" -p test_project_restore.py -v)
+    set_tests_properties(project_restore PROPERTIES TIMEOUT 30)
+    add_test(NAME writeback_codec
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_strict_lzma1ext.py")
+    set_tests_properties(writeback_codec PROPERTIES TIMEOUT 60)
+    add_test(NAME local_operations
+        COMMAND "${Python3_EXECUTABLE}" -m unittest discover
+            -s "${CMAKE_CURRENT_SOURCE_DIR}/tests" -p test_local_operations.py -v)
+    set_tests_properties(local_operations PROPERTIES TIMEOUT 30)
 endif()

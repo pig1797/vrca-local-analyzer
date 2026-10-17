@@ -27,6 +27,7 @@ MAX_UPLOAD = 450 * 1024 * 1024
 MAX_RESULT = 24 * 1024 * 1024
 TTL = 600
 STAGES = {"hashing", "extracting", "analyzing", "deep_read", "deep_analyze", "verifying"}
+OP_STAGES = {"planning", "writing", "reparsing", "starting", "loading", "exporting", "restoring", "checking_references", "packaging"}
 ASSETS = {"/": ("index.html", "text/html; charset=utf-8"),
           **{"/" + name: (name, mime) for name, mime in [
               ("styles.css", "text/css"), ("analysis.css", "text/css"),
@@ -88,7 +89,9 @@ def job_main(folder: Path, worker: Path, timeout: float) -> int:
             menu = None  # Preview failure must not falsify the analysis result.
     try:
         report = analyze(folder / "input.vrca", worker, timeout,
-                         progress=progress, menu_callback=capture, temp_parent=folder)
+                         progress=progress, menu_callback=capture, temp_parent=folder, evidence=folder / "evidence")
+        from local_operations import capability
+        report["local_writeback"] = dict(available=capability(report) is None, reason=capability(report))
         payload = json.dumps(dict(report=report, menu=menu), ensure_ascii=False,
                              allow_nan=False).encode("utf-8")
         if len(payload) > MAX_RESULT:
@@ -112,21 +115,24 @@ class LocalApp:
         self.uploads = {}
         self.runner = runner or self.launch
 
-    def launch(self, folder):
+    def launch(self, folder, operation=None, source="original"):
         options = dict(stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if os.name == "nt":
             options["creationflags"] = subprocess.CREATE_NO_WINDOW
         else:
             options["start_new_session"] = True
-        return subprocess.Popen([sys.executable, str(Path(__file__).resolve()),
-            "--job", str(folder), "--worker", str(self.worker), "--timeout", str(self.timeout)], **options)
+        args = [sys.executable, str(Path(__file__).resolve()),
+            "--job", str(folder), "--worker", str(self.worker), "--timeout", str(self.timeout)]
+        if operation:
+            args.extend(["--operation", operation, "--source-kind", source])
+        return subprocess.Popen(args, **options)
 
     def reserve(self):
         with self.lock:
             if self.closed:
                 raise AnalysisError("本地服务正在退出。")
             self.refresh()
-            if self.job and self.job["state"] in ("uploading", "running"):
+            if self.job and (self.job["state"] in ("uploading", "running") or self.job.get("operation", {}).get("state") == "running"):
                 raise AnalysisError("已有模型正在处理，请先取消或等待完成。")
             self.clear()
             import uuid
@@ -166,12 +172,28 @@ class LocalApp:
                     job["error"] = json.loads((job["folder"] / "error.json").read_text(encoding="utf-8"))["error"]
                 except (OSError, ValueError, KeyError):
                     job["error"] = "本地组件退出，未生成有效结果；可更换文件重试。"
-            (job["folder"] / "input.vrca").unlink(missing_ok=True)
+            if not ok:
+                (job["folder"] / "input.vrca").unlink(missing_ok=True)
+        operation = job.get("operation")
+        if operation and operation["state"] == "running":
+            proc = operation["process"]
+            if proc.poll() is None and time.monotonic() - operation["created"] > 1200:
+                self.stop(operation)
+            if proc.poll() is not None:
+                path = job["folder"] / (operation["kind"] + ".result.json")
+                ok = proc.returncode == 0 and path.is_file()
+                operation["state"] = "done" if ok else "failed"
+                job["finished"] = time.monotonic()
+                if not ok:
+                    try:
+                        operation["error"] = json.loads((job["folder"] / (operation["kind"] + ".error.json")).read_text(encoding="utf-8"))["error"]
+                    except (ValueError, KeyError, OSError):
+                        operation["error"] = "处理未完成或超过时限；没有生成已验证文件。"
         # Whole-job wall clock, not an endlessly renewed timeout.
         if job["state"] == "running" and time.monotonic() - job["created"] > self.timeout * 4 + 30:
             self.stop(job)
             job.update(state="failed", error="分析超过总时限；原模型未修改。", finished=time.monotonic())
-        if job["finished"] is not None and time.monotonic() - job["finished"] > TTL:
+        if job["finished"] is not None and not (operation and operation["state"] == "running") and time.monotonic() - job["finished"] > TTL:
             self.clear()
 
     def stop(self, job):
@@ -190,6 +212,8 @@ class LocalApp:
 
     def clear(self):
         if self.job:
+            if self.job.get("operation"):
+                self.stop(self.job["operation"])
             self.stop(self.job)
             shutil.rmtree(self.job["folder"])
             self.job = None
@@ -223,6 +247,45 @@ class LocalApp:
             return dict(id=identity, state=job["state"], stage=stage if stage in STAGES else "",
                         error=job["error"], expires_in=max(0, TTL - int(time.monotonic() - job["finished"]))
                         if job["finished"] else None)
+
+    def begin_operation(self, identity, kind, source):
+        with self.lock:
+            if self.closed or not self.status(identity) or self.job["state"] != "done":
+                raise AnalysisError("请先完成模型分析。")
+            job = self.job
+            operation = job.get("operation")
+            if operation and operation["state"] == "running":
+                raise AnalysisError("已有操作正在进行，请等待或取消。")
+            if (job["folder"] / (kind + ".result.json")).exists():
+                raise AnalysisError("本次操作已有结果，请直接下载。")
+            if source == "unlocked" and not (job["folder"] / "remove.result.json").is_file():
+                raise AnalysisError("请先生成并通过复验的移除副本。")
+            # Only this job's known, failed operation directory can be recycled.
+            failed = job["folder"] / kind
+            if failed.exists():
+                shutil.rmtree(failed)
+            for suffix in (".error.json",):
+                (job["folder"] / (kind + suffix)).unlink(missing_ok=True)
+            (job["folder"] / "operation.progress").unlink(missing_ok=True)
+            process = self.launch(job["folder"], kind, source)
+            job["operation"] = dict(kind=kind, state="running", process=process, created=time.monotonic(), error=None)
+            return dict(kind=kind, state="running")
+
+    def operation_status(self, identity):
+        if not self.status(identity):
+            return None
+        operation = self.job.get("operation")
+        if not operation:
+            return dict(state="idle")
+        result = {k: operation[k] for k in ("kind", "state", "error")}
+        try:
+            stage = (self.job["folder"] / "operation.progress").read_text(encoding="ascii")
+            result["stage"] = stage if stage in OP_STAGES else ""
+        except OSError:
+            pass
+        if operation["state"] == "done":
+            result["result"] = json.loads((self.job["folder"] / (operation["kind"] + ".result.json")).read_text(encoding="utf-8"))
+        return result
 
 
 class LocalServer(ThreadingHTTPServer):
@@ -291,15 +354,19 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         route = urlsplit(self.path).path
-        if not self.allowed(api=route.startswith("/api/")):
+        download = re.fullmatch(r"/api/analyses/([a-f0-9]{32})/downloads/(model|project|assets)", route)
+        if not self.allowed(api=route.startswith("/api/") and not download):
+            return
+        if download:
+            self.download(download[1], download[2])
             return
         if route in ASSETS:
             name, mime = ASSETS[route]
             self.reply(200, (ROOT / "web" / name).read_bytes(), mime)
         elif route == "/api/health":
-            self.reply(200, dict(ok=True, local=True, max_upload=MAX_UPLOAD, writeback=False, export=False))
+            self.reply(200, dict(ok=True, local=True, max_upload=MAX_UPLOAD, writeback=True, export=True))
         else:
-            match = re.fullmatch(r"/api/analyses/([a-f0-9]{32})(/result)?", route)
+            match = re.fullmatch(r"/api/analyses/([a-f0-9]{32})(/result|/operation)?", route)
             if not match:
                 self.reply(404, dict(error="不存在的入口。"))
                 return
@@ -307,6 +374,8 @@ class Handler(BaseHTTPRequestHandler):
                 status = self.server.app.status(match[1])
                 if status is None:
                     self.reply(404, dict(error="任务已清理，请重新选择模型。"))
+                elif match[2] == "/operation":
+                    self.reply(200, self.server.app.operation_status(match[1]))
                 elif match[2]:
                     if status["state"] != "done":
                         self.reply(409, dict(error="分析尚未完成。"))
@@ -325,6 +394,29 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/shutdown":
             self.reply(200, dict(ok=True))
             threading.Thread(target=self.server.shutdown, daemon=True).start()
+            return
+        action = re.fullmatch(r"/api/analyses/([a-f0-9]{32})/(remove|export)", self.path)
+        if action:
+            lengths = self.headers.get_all("Content-Length") or []
+            if (self.headers.get("Transfer-Encoding") or len(lengths) != 1
+                    or not lengths[0].isascii() or not lengths[0].isdigit()
+                    or len(lengths[0]) > 3 or not 2 <= int(lengths[0]) <= 128):
+                self.reply(400, dict(error="操作参数无效。")); return
+            try:
+                body = json.loads(self.rfile.read(int(lengths[0])))
+                expected = {"confirmed"} if action[2] == "remove" else {"source"}
+                if not isinstance(body, dict) or set(body) != expected:
+                    raise AnalysisError("只接受固定操作，不接受自定义计划或磁盘路径。")
+                if action[2] == "remove" and body["confirmed"] is not True:
+                    raise AnalysisError("请先确认生成另存的移除副本。")
+                source = body.get("source", "original")
+                if source not in ("original", "unlocked"):
+                    raise AnalysisError("导出来源无效。")
+                self.reply(202, self.server.app.begin_operation(action[1], action[2], source))
+            except (ValueError, AnalysisError) as exc:
+                self.reply(409, dict(error=str(exc) if isinstance(exc, AnalysisError) else "操作参数无效。"))
+            except OSError:
+                self.reply(500, dict(error="无法启动本地组件，请检查环境或磁盘空间。"))
             return
         if self.path != "/api/analyses":
             self.reply(404, dict(error="不存在的入口。"))
@@ -370,6 +462,10 @@ class Handler(BaseHTTPRequestHandler):
         except AnalysisError as exc:
             if job:
                 app.fail(job, str(exc))
+            elif length <= 65536:
+                # A tiny rejected second upload may already be in flight. Drain
+                # its bounded body so Windows TCP does not reset the 409 reply.
+                self.rfile.read(length)
             self.reply(409 if job is None else 400, dict(error=str(exc)))
         except (OSError, TimeoutError):
             if job:
@@ -379,6 +475,62 @@ class Handler(BaseHTTPRequestHandler):
             with app.lock:
                 app.uploads.pop(self.connection, None)
             finished.set()
+
+    def download(self, identity, key):
+        # The opaque job identity is the download capability. Browser navigation
+        # cannot add the API header; Host/Origin/Fetch checks still apply.
+        app = self.server.app
+        with app.lock:
+            if not app.status(identity):
+                self.reply(404, dict(error="任务已清理。")); return
+            folder = app.job["folder"]
+            kind = "remove" if key == "model" else "export"
+            receipt_path = folder / (kind + ".result.json")
+            if not receipt_path.is_file():
+                self.reply(409, dict(error="尚无已验证下载。")); return
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+            entry = next((a for a in receipt["artifacts"] if a["key"] == key), None)
+            names = {"model": "remove/unlocked.vrca", "project": "export/artifacts/unity-project.zip", "assets": "export/artifacts/model-assets.unitypackage"}
+            path = folder / names[key]
+            if not entry or not path.is_file() or path.is_symlink() or path.stat().st_size != entry["bytes"]:
+                self.reply(409, dict(error="产物校验不一致，请重新处理。")); return
+            size = path.stat().st_size
+            start, end = 0, size - 1
+            requested = self.headers.get("Range")
+            if requested:
+                match = re.fullmatch(r"bytes=(\d+)-(\d*)", requested)
+                if not match or int(match[1]) >= size or (match[2] and int(match[2]) < int(match[1])):
+                    self.reply(416, dict(error="下载范围无效。")); return
+                start, end = int(match[1]), min(int(match[2]) if match[2] else size - 1, size - 1)
+            self.send_response(206 if requested else 200)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("Content-Length", str(end - start + 1))
+            self.send_header("Content-Disposition", 'attachment; filename="' + path.name + '"')
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("ETag", '"' + entry["sha256"] + '"')
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Cross-Origin-Resource-Policy", "same-origin")
+            self.send_header("Content-Security-Policy", "default-src 'none'; sandbox")
+            if requested:
+                self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.close_connection = True
+            # Pin this job during local streaming, bounded by socket + wall time.
+            self.connection.settimeout(15)
+            deadline = time.monotonic() + 120
+            try:
+                with path.open("rb") as stream:
+                    stream.seek(start)
+                    remaining = end - start + 1
+                    while remaining and time.monotonic() < deadline:
+                        chunk = stream.read(min(1024 * 1024, remaining))
+                        if not chunk: break
+                        self.wfile.write(chunk)
+                        remaining -= len(chunk)
+            except OSError:
+                pass
 
     def do_DELETE(self):
         if not self.allowed(api=True):
@@ -403,12 +555,17 @@ def main(argv=None):
     parser.add_argument("--timeout", type=float, default=180)
     parser.add_argument("--no-browser", action="store_true")
     parser.add_argument("--job", type=Path, help=argparse.SUPPRESS)
+    parser.add_argument("--operation", choices=("remove", "export"), help=argparse.SUPPRESS)
+    parser.add_argument("--source-kind", choices=("original", "unlocked"), default="original", help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     if not 1 <= args.timeout <= 600 or not 0 <= args.port <= 65535:
         parser.error("超时须为 1–600 秒，端口须为 0–65535。")
     try:
         worker = find_worker(args.worker)
         if args.job:
+            if args.operation:
+                from local_operations import run
+                return run(args.job, worker, args.operation, args.source_kind)
             return job_main(args.job, worker, args.timeout)
         import importlib.util
         if importlib.util.find_spec("UnityPy") is None:

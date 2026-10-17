@@ -9,6 +9,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import shutil
 
 ROOT = Path(__file__).resolve().parent
 MAX_REPORT_BYTES = 16 * 1024 * 1024
@@ -58,7 +59,7 @@ def analyze_graph(worker: Path, graph: Path, digest: str, timeout: float) -> dic
 
 
 def analyze(source: Path, worker: Path, timeout: float = 180, *, progress=None,
-            menu_callback=None, temp_parent=None) -> dict:
+            menu_callback=None, temp_parent=None, evidence=None) -> dict:
     notify = progress or (lambda stage: None)
     notify("hashing")
     digest = sha256(source)
@@ -86,10 +87,16 @@ def analyze(source: Path, worker: Path, timeout: float = 180, *, progress=None,
                        str(graph), str(request_path), str(source), str(deep_graph)], timeout)
             notify("deep_analyze")
             report = analyze_graph(worker, deep_graph, digest, timeout)
+            graph = deep_graph
             deep_passes = 1
         notify("verifying")
         if sha256(source) != digest:
             raise AnalysisError("输入文件在分析期间发生变化，已拒绝输出。")
+        if evidence is not None:
+            evidence = Path(evidence)
+            evidence.mkdir(exist_ok=True)
+            shutil.copyfile(graph, evidence / "graph.json")
+            (evidence / "report.json").write_text(json.dumps(report, ensure_ascii=False), encoding="utf-8")
         report["local_execution"] = {
             "network_used": False,
             "input_modified": False,

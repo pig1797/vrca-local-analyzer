@@ -24,5 +24,9 @@ jobs:
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
       - name: Build
         run: cmake --build build --config Release --parallel 2
+      - name: Install Windows liblzma runtime for codec tests
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Copy-Item -LiteralPath 'C:/Program Files/Git/mingw64/bin/liblzma-5.dll' -Destination bin/liblzma-5.dll
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure

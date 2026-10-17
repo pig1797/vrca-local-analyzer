@@ -30,3 +30,9 @@ progress:not([value]) { opacity: .7; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+/* Local operations reuse the existing feature card and action styling. */
+.local-confirm { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+#export-source { width: 100%; max-width: 360px; min-height: 44px; padding: 8px; color: var(--v-text, #d8f4f4); background: #10252a; border: 1px solid #416166; border-radius: 8px; }
+#operations h4 { margin-top: 24px; }
+#downloads { flex-wrap: wrap; }
+#operation-status { overflow-wrap: anywhere; }

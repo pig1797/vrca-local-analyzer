@@ -83,7 +83,7 @@ class WebTests(unittest.TestCase):
         status, data, _ = self.request("GET", f"/api/analyses/{identity}/result")
         self.assertEqual(status, 200)
         self.assertFalse(json.loads(data)["report"]["local_execution"]["runtime_tested"])
-        self.assertFalse((self.started[0] / "input.vrca").exists())
+        self.assertTrue((self.started[0] / "input.vrca").exists())
         self.assertEqual(self.request("DELETE", f"/api/analyses/{identity}")[0], 200)
         self.assertFalse(self.started[0].exists())
         self.assertEqual(self.request("GET", f"/api/analyses/{identity}/result")[0], 404)
@@ -97,6 +97,51 @@ class WebTests(unittest.TestCase):
 
     def test_transfer_encoding_rejected(self):
         self.assertEqual(self.upload(**{"Transfer-Encoding": "chunked"})[0], 411)
+
+    def test_operation_body_and_confirmation_are_strict(self):
+        _, payload, _ = self.upload()
+        identity = json.loads(payload)["id"]
+        for kind, body in [("remove", {}), ("remove", {"confirmed": False}),
+                           ("remove", {"confirmed": True, "plan": {}}),
+                           ("export", {"source": "C:/arbitrary"}), ("export", {"path": "anything"})]:
+            self.assertEqual(self.request("POST", f"/api/analyses/{identity}/{kind}", json.dumps(body))[0], 409)
+        self.assertEqual(self.request("GET", f"/api/analyses/{identity}/operation")[0], 200)
+        self.assertEqual(self.request("GET", f"/api/analyses/{identity}/downloads/model", local=False)[0], 409)
+
+    def test_verified_artifact_download_and_range(self):
+        _, payload, _ = self.upload()
+        identity = json.loads(payload)["id"]
+        folder = self.app.job["folder"]
+        (folder / "remove").mkdir()
+        (folder / "remove/unlocked.vrca").write_bytes(b"SYNTHETIC-ARTIFACT")
+        (folder / "remove.result.json").write_text(json.dumps(dict(ok=True, artifacts=[dict(key="model", bytes=999, sha256="a" * 64)])))
+        # Size mismatch does not become a downloadable success.
+        route = f"/api/analyses/{identity}/downloads/model"
+        self.assertEqual(self.request("GET", route, local=False)[0], 409)
+        (folder / "remove.result.json").write_text(json.dumps(dict(ok=True, artifacts=[dict(key="model", bytes=len(b"SYNTHETIC-ARTIFACT"), sha256="a" * 64)])))
+        code, body, headers = self.request("GET", route, local=False)
+        self.assertEqual((code, body), (200, b"SYNTHETIC-ARTIFACT"))
+        self.assertEqual(headers["Accept-Ranges"], "bytes")
+        code, body, headers = self.request("GET", route, headers={"Range": "bytes=2-5"}, local=False)
+        self.assertEqual((code, body), (206, b"NTHE"))
+        self.assertEqual(self.request("GET", route, headers={"Range": "bytes=999-"}, local=False)[0], 416)
+        self.assertEqual(self.request("GET", route, headers={"Sec-Fetch-Site": "cross-site"}, local=False)[0], 403)
+
+    def test_operation_blocks_new_upload_and_expiry_while_running(self):
+        _, payload, _ = self.upload()
+        identity = json.loads(payload)["id"]
+        self.app.status(identity)
+        class Pending:
+            def poll(self): return None
+        with patch.object(self.app, "launch", return_value=Pending()):
+            self.assertEqual(self.request("POST", f"/api/analyses/{identity}/export", '{"source":"original"}')[0], 202)
+        self.app.job["finished"] = time.monotonic() - web.TTL - 1
+        self.app.refresh()
+        self.assertEqual(self.upload()[0], 409)
+        self.assertEqual(self.request("POST", f"/api/analyses/{identity}/remove", '{"confirmed":true}')[0], 409)
+        self.app.job["operation"]["process"] = Finished()
+        self.app.refresh()
+        self.assertEqual(self.app.job["operation"]["state"], "failed")
 
     def test_concurrent_upload_rejected(self):
         current = self.app.reserve()

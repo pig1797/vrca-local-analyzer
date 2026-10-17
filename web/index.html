@@ -31,7 +31,7 @@
           <li class="v-step" id="step-2"><span class="v-step-num">2</span><span><span class="v-step-title">本地分析</span><span class="v-step-desc">提取结构，按需补充深层线索</span></span></li>
           <li class="v-step" id="step-3"><span class="v-step-num">3</span><span><span class="v-step-title">查看结果</span><span class="v-step-desc">高可信与参考候选分开展示</span></span></li>
         </ol>
-        <div class="v-quota-ref"><span class="v-mini-label">本地运行</span><p class="v-fineprint">无需卡密，无需登录。原文件不会被修改。完成后临时文件保留 10 分钟，也可立即清理。</p><p class="v-fineprint">此版提供分析与无图标轮盘预览；永久移除和工程导出尚未迁入。</p></div>
+        <div class="v-quota-ref"><span class="v-mini-label">本地运行</span><p class="v-fineprint">无需卡密，无需登录。原文件不会被修改。完成后模型及结果在本机临时保留 10 分钟，也可立即清理。</p><p class="v-fineprint">永久移除另存副本；工程导出提供 ZIP 与 unitypackage。</p></div>
       </aside>
       <section class="v-panel" id="panel" aria-labelledby="panel-title">
         <div class="v-panel-inner">
@@ -58,8 +58,21 @@
             <section id="reference-group" hidden><h4>参考候选</h4><p class="analysis-result-hint">证据不完整，不代表已经解出可用密码。</p><ul class="analysis-password-list" id="reference-list"></ul></section>
             <details class="analysis-guide"><summary>结构特征与手动参考</summary><div id="features"></div></details>
             <div class="v-actions"><button class="v-btn" id="save" type="button">保存完整报告</button></div>
-            <p class="v-help">报告可能包含密码及模型信息，请私人保存。当前版本不生成永久解锁副本。</p>
+            <p class="v-help">报告可能包含密码及模型信息，请私人保存。</p>
             <details class="analysis-guide"><summary>查看完整 JSON 报告</summary><pre id="report-output"></pre></details>
+          </section>
+          <section class="analysis-feature-card" id="operations" hidden aria-labelledby="operations-title">
+            <h3 id="operations-title">模型处理</h3>
+            <h4>永久移除密码</h4><p id="remove-reason" class="v-help"></p>
+            <label class="local-confirm"><input id="remove-confirm" type="checkbox">确认生成另存副本，不覆盖原模型</label>
+            <div class="v-actions"><button class="v-btn" id="remove" type="button" disabled>生成永久移除副本</button></div>
+            <p class="v-help">仅执行已证明的安全计划；独立复解析通过后才提供下载，不代表游戏实测。</p>
+            <h4>导出 Unity 工程</h4>
+            <label class="v-label" for="export-source">导出来源</label>
+            <select id="export-source"><option value="original">原始模型</option><option value="unlocked" disabled>已验证移除副本</option></select>
+            <div class="v-actions"><button class="v-btn" id="export" type="button">开始工程导出</button></div>
+            <p class="v-help">导出构建包中的资源，不是作者原始工程；缺失脚本、Shader 和依赖以结果提示为准。</p>
+            <p id="operation-status" role="status" aria-live="polite"></p><div id="downloads" class="v-actions"></div>
           </section>
           <section class="analysis-feature-card" id="menu-card" hidden><h3>轮盘预览</h3><p class="analysis-result-hint">沿用原网页轮盘。仅模拟菜单输入，不控制游戏，不发送 OSC；此版不提取原始图标。</p><div id="wheel-mount"></div></section>
         </div>

@@ -4,9 +4,13 @@
   const $ = id => document.getElementById(id);
   let selected = null, job = '', report = null, xhr = null, busy = false, ready = false;
   let epoch = 0, poll = null, timer = null, started = 0;
+  let removeReady = false;
   const wheel = window.VRCA_WHEEL.create($('wheel-mount'));
   const stages = {hashing: '核对文件摘要', extracting: '提取模型结构', analyzing: '分析密码与终态',
-    deep_read: '补读相关深层结构', deep_analyze: '复核深层分析结果', verifying: '复核原文件未修改'};
+    deep_read: '补读相关深层结构', deep_analyze: '复核深层分析结果', verifying: '复核原文件未修改',
+    planning: '核对安全计划与来源', writing: '生成移除副本', reparsing: '独立复解析与非目标字节核验',
+    starting: '启动本地导出组件', loading: '读取模型资源', exporting: '导出工程资源',
+    restoring: '恢复工程结构', checking_references: '检查工程引用与依赖', packaging: '生成并校验两个下载包'};
   function error(message) { $('error-text').textContent = message || ''; $('form-error').hidden = !message; }
   function buttons() {
     $('go').disabled = !ready || !selected || busy;
@@ -16,9 +20,14 @@
     $('clear').disabled = !!xhr;
     $('clear').textContent = busy ? '取消并清理' : '清理本次结果';
     $('quit').disabled = !!xhr;
+    $('remove').disabled = !ready || !job || busy || !removeReady || !$('remove-confirm').checked;
+    $('export').disabled = !ready || !job || busy;
+    $('remove-confirm').disabled = busy || !removeReady;
+    $('export-source').disabled = busy;
   }
-  async function api(path, method = 'GET') {
-    const response = await fetch(path, {method, headers: {'X-VRCA-Local': '1'}, cache: 'no-store'});
+  async function api(path, method = 'GET', requestBody) {
+    const response = await fetch(path, {method, headers: {'X-VRCA-Local': '1', ...(requestBody ? {'Content-Type': 'application/json'} : {})},
+      body: requestBody ? JSON.stringify(requestBody) : undefined, cache: 'no-store'});
     const body = await response.json();
     if (!response.ok) throw new Error(body.error || '本机请求失败，请重试。');
     return body;
@@ -93,6 +102,10 @@
     if (!$('features').children.length) $('features').append(node('p', '没有附加结构说明。'));
     $('report-output').textContent = JSON.stringify(report, null, 2);
     $('result').hidden = false;
+    $('operations').hidden = false;
+    removeReady = report.local_writeback && report.local_writeback.available === true;
+    $('remove-reason').textContent = removeReady ? '已有可执行计划，勾选确认后生成副本。' : (report.local_writeback && report.local_writeback.reason) || '未得到可安全执行的永久移除计划。';
+    buttons();
     $('menu-card').hidden = !data.menu;
     if (data.menu) {
       try { wheel.setData(data.menu, {jobId: job, sourceSha256: report.source_sha256, expiresAt: Date.now() + 600000}); }
@@ -124,6 +137,9 @@
     catch (failure) { error(failure.message); busy = false; buttons(); return; }
     job = ''; report = null; busy = false;
     $('result').hidden = true; $('menu-card').hidden = true; $('progress-card').hidden = true;
+    $('operations').hidden = true; $('downloads').replaceChildren(); $('operation-status').textContent = '';
+    removeReady = false; $('remove-confirm').checked = false;
+    $('export-source').value = 'original'; $('export-source').options[1].disabled = true;
     $('report-output').textContent = ''; $('high-list').replaceChildren(); $('reference-list').replaceChildren(); $('features').replaceChildren();
     wheel.clear(); error(''); buttons();
     for (let i = 1; i <= 3; i++) $('step-' + i).classList.toggle('is-active', i === 1);
@@ -148,6 +164,47 @@
   $('file-drop').addEventListener('dragleave', () => $('file-drop').classList.remove('is-dragover'));
   $('file-drop').addEventListener('drop', event => { event.preventDefault(); $('file-drop').classList.remove('is-dragover'); choose(event.dataTransfer.files[0] || null); });
   $('clear').addEventListener('click', clear);
+  $('remove-confirm').addEventListener('change', buttons);
+  async function operation(kind) {
+    if (busy || !job) return;
+    const current = ++epoch; busy = true; error(''); buttons();
+    $('operation-status').textContent = '正在提交本机操作…';
+    try {
+      await api('/api/analyses/' + job + '/' + kind, 'POST', kind === 'remove' ? {confirmed: true} : {source: $('export-source').value});
+      await operationMonitor(current);
+    } catch (failure) { if (current === epoch) { error(failure.message); busy = false; buttons(); $('operation-status').textContent = '本次操作未完成。'; } }
+  }
+  async function operationMonitor(current) {
+    if (current !== epoch) return;
+    try {
+      const status = await api('/api/analyses/' + job + '/operation');
+      if (current !== epoch) return;
+      if (status.state === 'failed') throw new Error(status.error || '本次处理失败，未生成已验证下载。');
+      if (status.state !== 'done') {
+        $('operation-status').textContent = stages[status.stage] || '本机正在处理，可点击“取消并清理”停止。';
+        poll = setTimeout(() => operationMonitor(current), 800); return;
+      }
+      const data = status.result;
+      if (data.kind === 'remove') {
+        removeReady = false; $('remove-confirm').checked = false;
+        $('export-source').options[1].disabled = false;
+        $('remove-reason').textContent = '副本已生成且独立复解析通过，可下载或用于工程导出。';
+        $('operation-status').textContent = '永久移除副本已通过离线结构与非目标字节核验；未做游戏实测。';
+      } else {
+        const c = data.counts || {};
+        $('operation-status').textContent = '工程导出完成 · ' + (data.status === 'recovered_data' ? '数据恢复完成' : '仍有缺失依赖或不完整恢复') +
+          '；资源 ' + (c.assets || 0) + '，缺失引用 ' + (c.missingReferences || 0) + '，近似 Shader ' + (c.approximateShaders || 0) + '。尚未在 Unity 中导入验证。';
+      }
+      for (const file of data.artifacts || []) {
+        const link = node('a', file.key === 'model' ? '下载永久移除副本' : file.key === 'project' ? '下载 Unity 工程 ZIP' : '下载 unitypackage', 'v-btn');
+        link.href = '/api/analyses/' + job + '/downloads/' + file.key; link.download = file.name;
+        link.title = 'SHA256: ' + file.sha256; $('downloads').append(link);
+      }
+      busy = false; buttons();
+    } catch (failure) { if (current === epoch) { error(failure.message); busy = false; buttons(); $('operation-status').textContent = '本次操作未完成；不提供未经验证的产物。'; } }
+  }
+  $('remove').addEventListener('click', () => operation('remove'));
+  $('export').addEventListener('click', () => operation('export'));
   $('save').addEventListener('click', () => {
     if (!report) return;
     const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], {type: 'application/json'}));
@@ -160,6 +217,7 @@
       await api('/api/shutdown', 'POST'); ++epoch; clearTimeout(poll); clearInterval(timer);
       ready = false; busy = false; report = null; job = ''; wheel.clear();
       $('result').hidden = true; $('menu-card').hidden = true; $('progress-card').hidden = true;
+      $('operations').hidden = true; $('downloads').replaceChildren();
       $('report-output').textContent = ''; $('high-list').replaceChildren(); $('reference-list').replaceChildren(); $('features').replaceChildren();
       $('connection').textContent = '本地服务已退出'; $('quit').disabled = true; buttons(); $('quit').disabled = true;
     } catch (failure) { error(failure.message); }

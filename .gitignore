@@ -11,6 +11,8 @@ __pycache__/
 *.so
 *.dylib
 *.zip
+/tools/AssetRipper/
+/tools/sdk/
 
 # Customer inputs, extracted assets and analysis outputs are never source.
 *.vrca
