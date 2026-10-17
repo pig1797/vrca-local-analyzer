@@ -159,6 +159,16 @@ def run(folder, worker, kind, source="original"):
         (folder / (kind + ".result.json")).write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
         return 0
     except Exception as exc:
-        message = str(exc) if isinstance(exc, AnalysisError) else "本地处理失败；未产生已验证下载，请检查组件、磁盘空间或更换模型。"
+        codes = {
+            "project_exporter_incomplete": "导出器未生成有效资源工程；该模型可能触发第三方导出器错误。未提供空包，可换模型重试。",
+            "project_exporter_request_failed": "导出器处理失败；未生成已验证工程，请换模型或检查组件。",
+            "project_exporter_integrity": "工程导出组件摘要不匹配，请使用完整便携包或指定版本组件。",
+            "project_exporter_start_failed": "工程导出组件无法启动，请检查运行环境。",
+            "project_exporter_start_timeout": "工程导出组件启动超时，请检查运行环境。",
+            "project_exporter_timeout": "工程导出超过时限，未提供不完整下载。",
+            "project_size_limit": "导出资源超过本地容量限制，已停止处理。",
+            "sdk_profile_version_mismatch": "SDK 版本不是要求的 3.10.4，请检查导出组件。",
+        }
+        message = str(exc) if isinstance(exc, AnalysisError) else codes.get(str(exc), "本地处理失败；未产生已验证下载，请检查组件、磁盘空间或更换模型。")
         (folder / (kind + ".error.json")).write_text(json.dumps(dict(error=message), ensure_ascii=False), encoding="utf-8")
         return 1
