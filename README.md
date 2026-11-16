@@ -8,7 +8,7 @@
 
 ## 普通用户：Windows 便携包
 
-直接下载：[Windows x64 便携包（约 81 MiB）](https://github.com/pig1797/vrca-local-analyzer/releases/latest/download/VRCA-Local-Web-2026.11.16-windows-x64.zip) · [查看所有版本](https://github.com/pig1797/vrca-local-analyzer/releases)。当前包 SHA-256：`7296BAFF1845A8F47DAC2123F1327D8D595B5BDBA8254536BE5C6030FC7C2BD0`。
+直接下载：[Windows x64 便携包（约 81 MiB）](https://github.com/pig1797/vrca-local-analyzer/releases/latest/download/VRCA-Local-Web-v1.0.1-windows-x64.zip) · [查看所有版本](https://github.com/pig1797/vrca-local-analyzer/releases)。当前包 SHA-256：`08753BFB45F79A733587708442346B4F71E54FCD54940E9940D5F4AC11C10CC5`。
 
 下载后按“解压 → 双击 `VRCA-Local.exe`”使用即可，不需要安装 Python、CMake 或 C++ 编译器。便携包中的第三方依赖和 VRChat SDK 按各自许可证/官方条款使用。
 
