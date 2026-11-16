@@ -2,7 +2,6 @@
 :root { --v-text-3: #9bb6c5; --v-text-4: #9bb6c5; }
 [hidden] { display: none !important; }
 .local-header-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.v-panel { transform: none; }
 .v-panel-inner { min-width: 0; }
 .v-main > * { min-width: 0; }
 .v-lede { max-width: 36ch; }

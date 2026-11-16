@@ -6,12 +6,19 @@
   let epoch = 0, poll = null, timer = null, started = 0;
   let removeReady = false;
   const wheel = window.VRCA_WHEEL.create($('wheel-mount'));
+  function fxHook(name, ...args) {
+    const hooks = window.VRCA_FX && window.VRCA_FX.hooks;
+    if (hooks && typeof hooks[name] === 'function') hooks[name](...args);
+  }
   const stages = {hashing: '核对文件摘要', extracting: '提取模型结构', analyzing: '分析密码与终态',
     deep_read: '补读相关深层结构', deep_analyze: '复核深层分析结果', verifying: '复核原文件未修改',
     planning: '核对安全计划与来源', writing: '生成移除副本', reparsing: '独立复解析与非目标字节核验',
     starting: '启动本地导出组件', loading: '读取模型资源', exporting: '导出工程资源',
     restoring: '恢复工程结构', checking_references: '检查工程引用与依赖', packaging: '生成并校验两个下载包'};
-  function error(message) { $('error-text').textContent = message || ''; $('form-error').hidden = !message; }
+  function error(message) {
+    $('error-text').textContent = message || ''; $('form-error').hidden = !message;
+    if (message) fxHook('onError');
+  }
   function buttons() {
     $('go').disabled = !ready || !selected || busy;
     $('file').disabled = busy;
@@ -105,7 +112,7 @@
     $('operations').hidden = false;
     removeReady = report.local_writeback && report.local_writeback.available === true;
     $('remove-reason').textContent = removeReady ? '已有可执行计划，勾选确认后生成副本。' : (report.local_writeback && report.local_writeback.reason) || '未得到可安全执行的永久移除计划。';
-    buttons();
+    buttons(); fxHook('onStatusRendered', report);
     $('menu-card').hidden = !data.menu;
     if (data.menu) {
       try { wheel.setData(data.menu, {jobId: job, sourceSha256: report.source_sha256, expiresAt: Date.now() + 600000}); }
@@ -129,6 +136,7 @@
   function finish(title) {
     busy = false; clearInterval(timer); $('progress-title').textContent = title;
     $('progress').value = 100; buttons();
+    if (/分析完成|副本已生成|工程导出完成/.test(title)) fxHook('onSuccess');
   }
   async function clear() {
     if (xhr) return;

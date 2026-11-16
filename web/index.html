@@ -8,10 +8,12 @@
   <link rel="stylesheet" href="/analysis.css">
   <link rel="stylesheet" href="/wheel.css">
   <link rel="stylesheet" href="/local.css">
+  <script src="/effects.js" defer></script>
   <script src="/wheel.js" defer></script>
   <script src="/local.js" defer></script>
 </head>
 <body>
+  <canvas class="fx-aurora" id="fx-aurora" aria-hidden="true"></canvas>
   <a class="skip-link" href="#panel">跳至模型分析</a>
   <div class="v-shell">
     <header class="v-topbar">
@@ -33,7 +35,7 @@
         </ol>
         <div class="v-quota-ref"><span class="v-mini-label">本地运行</span><p class="v-fineprint">无需卡密，无需登录。原文件不会被修改。完成后模型及结果在本机临时保留 10 分钟，也可立即清理。</p><p class="v-fineprint">永久移除另存副本；工程导出提供 ZIP 与 unitypackage。</p></div>
       </aside>
-      <section class="v-panel" id="panel" aria-labelledby="panel-title">
+      <section class="v-panel" id="panel" data-fx-tilt aria-labelledby="panel-title">
         <div class="v-panel-inner">
           <div class="v-panel-head"><div><p class="v-panel-kicker">Local Analysis</p><h2 class="v-h2" id="panel-title">选择模型分析</h2></div><span class="v-session-tag">无需卡密</span></div>
           <form id="analysis-form">
