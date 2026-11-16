@@ -8,6 +8,10 @@
 
 ## 普通用户：Windows 便携包
 
+直接下载：[Windows x64 便携包（约 81 MiB）](https://github.com/pig1797/vrca-local-analyzer/releases/latest/download/VRCA-Local-Web-2026.11.16-windows-x64.zip) · [查看所有版本](https://github.com/pig1797/vrca-local-analyzer/releases)。当前包 SHA-256：`7296BAFF1845A8F47DAC2123F1327D8D595B5BDBA8254536BE5C6030FC7C2BD0`。
+
+下载后按“解压 → 双击 `VRCA-Local.exe`”使用即可，不需要安装 Python、CMake 或 C++ 编译器。便携包中的第三方依赖和 VRChat SDK 按各自许可证/官方条款使用。
+
 将完整便携包解压到一个目录，双击 `VRCA-Local.exe`（备用入口为 `Start-VRCA.cmd`）。请不要在 ZIP 内直接运行，也不要只复制启动文件；旁边的 `runtime`、`bin`、`python`、`web` 文件夹需要一起保留。完整包自带 Python 和已编译核心，不需要另装 Python 或 C++ 编译器。
 
 浏览器会打开 `http://127.0.0.1:随机端口/`。选择或拖入 `.vrca` → “开始本地分析” → 查看候选/轮盘或保存报告。上传进度是传入**本机临时目录**的进度，不是上传互联网。
