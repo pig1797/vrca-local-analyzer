@@ -3,10 +3,6 @@
 #include "avacrypt_v1_solver.hpp"
 #include "common.hpp"
 #include "rule_profile.hpp"
-#if !defined(VRC_SERVER_WORKER)
-#include "license.hpp"
-#include "operation_permit.hpp"
-#endif
 #include "state_plan_contract.hpp"
 #include "menu_condition_proof.hpp"
 #include "vmp_bridge.hpp"
@@ -495,7 +491,6 @@ Snapshot ParseSnapshot(const json::Value& root) {
     Snapshot out;
     out.source_sha256 = String(root, "source_sha256");
     out.graph_schema_version = String(root, "graph_schema_version");
-#if defined(VRC_SERVER_WORKER)
     if (out.graph_schema_version != "vpf-structural-graph/1" ||
             !IsHexDigest(out.source_sha256) ||
             out.source_sha256 != LowerAscii(out.source_sha256) ||
@@ -504,8 +499,7 @@ Snapshot ParseSnapshot(const json::Value& root) {
             root.find("shell_protector") ||
             !root.find("contact_components") ||
             !root.find("contact_components")->is_array())
-        throw std::runtime_error("invalid remote structural graph schema");
-#endif
+        throw std::runtime_error("invalid normalized structural graph schema");
     out.analysis_depth = String(root, "analysis_depth", "legacy_complete");
     out.deep_scan_machine_count = Integer(root, "deep_scan_machine_count");
     const auto* stats = Field(root, "stats");
@@ -9350,49 +9344,40 @@ void ValidateProtectedFinalDecision(const RuleProfile& rules,
     const json::Value::Array& condition_rewrites) {
     VRC_VMP_BEGIN_LOCKED("analyze_graph_finalize");
     std::string failure;
-#if defined(VRC_SERVER_WORKER)
-    {
-#else
-    if (!ValidateActiveOperationPermit(OperationKind::analyze_graph, failure)) {
-        // Preserve the exact permit failure for the caller after leaving the
-        // protected region.
-    } else {
-#endif
-        failure.clear();
-        for (const auto& candidate : candidates) {
-            if (candidate.confidence != u8"高") continue;
-            if (!rules.high_enabled ||
-                    static_cast<int>(candidate.password.size()) < rules.min_password_length ||
-                    static_cast<int>(candidate.password.size()) > rules.max_password_length) {
-                failure = "high confidence candidate rejected by active rule profile";
-                break;
-            }
+    failure.clear();
+    for (const auto& candidate : candidates) {
+        if (candidate.confidence != u8"高") continue;
+        if (!rules.high_enabled ||
+                static_cast<int>(candidate.password.size()) < rules.min_password_length ||
+                static_cast<int>(candidate.password.size()) > rules.max_password_length) {
+            failure = "high confidence candidate rejected by local rule profile";
+            break;
         }
-        auto validate_methods = [&](const json::Value::Array& values) {
-            for (const auto& value : values) {
-                const std::string method = String(value, "method");
-                if (method.empty() || !SafePlanMethodAllowed(rules, method)) {
-                    failure = "safe plan method rejected by active rule profile";
+    }
+    auto validate_methods = [&](const json::Value::Array& values) {
+        for (const auto& value : values) {
+            const std::string method = String(value, "method");
+            if (method.empty() || !SafePlanMethodAllowed(rules, method)) {
+                failure = "safe plan method rejected by local rule profile";
+                return;
+            }
+            if (const auto* proofs = value.find("equivalent_proofs")) {
+                if (!proofs->is_array() || proofs->array().size() < 2) {
+                    failure = "invalid equivalent state plan proofs";
                     return;
                 }
-                if (const auto* proofs = value.find("equivalent_proofs")) {
-                    if (!proofs->is_array() || proofs->array().size() < 2) {
-                        failure = "invalid equivalent state plan proofs";
+                for (const auto& proof : proofs->array()) {
+                    if (!SafePlanMethodAllowed(rules, String(proof, "method"))) {
+                        failure = "equivalent plan method rejected by local rule profile";
                         return;
-                    }
-                    for (const auto& proof : proofs->array()) {
-                        if (!SafePlanMethodAllowed(rules, String(proof, "method"))) {
-                            failure = "equivalent plan method rejected by active rule profile";
-                            return;
-                        }
                     }
                 }
             }
-        };
-        if (failure.empty()) validate_methods(state_bypasses);
-        if (failure.empty()) validate_methods(menu_bypasses);
-        if (failure.empty()) validate_methods(condition_rewrites);
-    }
+        }
+    };
+    if (failure.empty()) validate_methods(state_bypasses);
+    if (failure.empty()) validate_methods(menu_bypasses);
+    if (failure.empty()) validate_methods(condition_rewrites);
     VRC_VMP_END();
     if (!failure.empty())
         throw std::runtime_error("protected final decision rejected: " + failure);
@@ -9421,30 +9406,9 @@ json::Value GuideJson(const Guide& g) { json::Value::Object o;o["password"]=g.pa
 } // namespace
 
 json::Value AnalyzeNormalizedGraph(const fs::path& graph_path) {
-    // Keep the online permit + encrypted rule-profile boundary locked to the
-    // customer's VMProtect serial, but do not virtualize the whole graph walk.
-    // Large controllers spend most of their time in STL traversal and JSON
-    // construction; putting that entire hot loop inside UltraLockByKey can turn
-    // a two-second analysis into a multi-minute timeout.  The heavy traversal
-    // still cannot produce an authorized result without the locked rule profile,
-    // and the final externally visible decision is locked again below.
-    RuleProfile rules;
-#if defined(VRC_SERVER_WORKER)
-    rules = ServerRuleProfile();
-#else
-    VRC_VMP_BEGIN_LOCKED("analyze_graph_authorize");
-    std::string permit_reason;
-    if (!ValidateActiveOperationPermit(OperationKind::analyze_graph,
-            graph_path.wstring(), permit_reason)) {
-        VRC_VMP_END();
-        throw std::runtime_error("operation permit rejected at analysis entry: " + permit_reason);
-    }
-    if (!AcquireActiveRuleProfile(rule_all, rules, permit_reason)) {
-        VRC_VMP_END();
-        throw std::runtime_error("rule profile rejected at analysis entry: " + permit_reason);
-    }
-    VRC_VMP_END();
-#endif
+    // The public analyzer uses a fixed local policy. There is no online
+    // permit, account, device binding, or encrypted rule download.
+    const RuleProfile rules = LocalRuleProfile();
     const json::Value graph_input = json::Parse(ReadUtf8File(graph_path));
     const Snapshot snapshot=ParseSnapshot(graph_input);
     const auto menu_maps = BuildMenuMaps(snapshot, rules);
@@ -11717,9 +11681,7 @@ json::Value AnalyzeNormalizedGraph(const fs::path& graph_path) {
         request["controllers"] = std::move(controllers);
         request["machine_count"] = requested_count;
         report["deep_scan_request"] = std::move(request);
-#if defined(VRC_SERVER_WORKER)
         report["deep_analysis_request"] = report["deep_scan_request"];
-#endif
         report["deep_scan_reason"] = "检测到真实输入链，但快速图谱缺少恢复效果；正在定向读取相关控制器。";
     }
     {

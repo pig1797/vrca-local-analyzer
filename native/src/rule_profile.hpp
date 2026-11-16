@@ -51,35 +51,11 @@ struct RuleProfile {
     std::vector<YamlParameterRule> yaml_rules;
 };
 
-struct RuleCapsuleBinding {
-    std::string app;
-    int build = 0;
-    std::string action;
-    std::string input_hash;
-    std::string device_key_hash;
-    std::string vmp_hwid_hash;
-    std::string jti;
-    std::string policy_hash;
-    std::string rule_key_commitment;
-};
-
-std::string RuleCapsuleAad(const RuleCapsuleBinding& binding);
-std::string RuleProfileFingerprint(const RuleProfile& profile);
-bool ParseRulePackV2(const std::string& plaintext,
-    const RuleCapsuleBinding& expected,
-    const std::vector<unsigned char>& rule_key,
-    RuleProfile& profile,
-    std::string& reason);
 bool DetectorEnabled(const RuleProfile& profile, DetectorRule detector);
 bool SafePlanMethodAllowed(const RuleProfile& profile, const std::string& method);
-RuleProfile DevelopmentRuleProfile();
-#if defined(VRC_SERVER_WORKER)
-// Fixed, compile-time policy used only by the private Linux analysis worker.
-// It deliberately has no client license, VMProtect or encrypted rule-pack
-// dependency because the service boundary authenticates the request before
-// spawning this process.
-RuleProfile ServerRuleProfile();
-#endif
+// Fixed, compile-time policy for the public local analyzer. It contains no
+// network, account, card, device, or encrypted rule-pack dependency.
+RuleProfile LocalRuleProfile();
 void SecureClearRuleProfile(RuleProfile& profile);
 
 }  // namespace vrc

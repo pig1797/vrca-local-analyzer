@@ -8,4 +8,4 @@ Copyright (C) 2026 pig1797 and contributors.
 
 本程序不提供任何保证，详见 LICENSE。请保留版权、许可证和已有第三方声明。
 
-UnityPy 和由包管理器安装的其他依赖保留各自许可证，参见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)；项目许可证不重新许可第三方依赖、模型内容或平台 SDK。本仓库不包含客户模型、卡密数据库、私有服务配置、Unity/VRChat SDK 或 VMProtect SDK。
+UnityPy 和由包管理器安装的其他依赖保留各自许可证，参见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)；项目许可证不重新许可第三方依赖、模型内容或平台 SDK。本仓库不包含客户模型、卡密数据库、联网授权代码、私有服务配置、Unity/VRChat SDK 或 VMProtect SDK。

@@ -16,10 +16,10 @@ add_library(vrc_analysis STATIC
     native/src/menu_condition_proof.cpp
     native/src/avacrypt_v1_solver.cpp)
 target_include_directories(vrc_analysis PUBLIC native/src)
-# This build selects the portable, local rules: no card server, licence client,
+# This build selects the public local rules: no network authorization,
 # proprietary SDK, signed rule download, or optional research solver.
 target_compile_definitions(vrc_analysis PUBLIC
-    VRC_SERVER_WORKER=1 NDEBUG=1 VRC_SERVER_POLICY_BUILD=45)
+    VRC_LOCAL_POLICY_BUILD=45 NDEBUG=1)
 if(MSVC)
     target_compile_options(vrc_analysis PRIVATE /W4 /utf-8)
 else()

@@ -158,10 +158,8 @@ int AggregateRank(const std::vector<AvaCryptV1MeshProbe>& probes,
 AvaCryptV1SolveResult SolveAvaCryptV1MeshKeys(
     const std::vector<AvaCryptV1MeshProbe>& probes) {
     // This routine evaluates tens of thousands of official key classes.
-    // VMProtect Ultra on the entire hot loop makes a normal analysis exceed
-    // the UI timeout. Mutation still protects the compiled search/math while
-    // the caller's classification and acceptance policy remain inside the
-    // Ultra-protected analyze_normalized_graph region.
+    // Keep the marker around the solver boundary without wrapping the whole
+    // hot loop in additional runtime machinery.
     VRC_VMP_BEGIN_MUTATION("avacrypt_v1_mesh_solver");
     AvaCryptV1SolveResult result;
     for (const auto& probe : probes) {

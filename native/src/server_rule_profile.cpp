@@ -7,25 +7,25 @@
 namespace vrc {
 namespace {
 
-#ifndef VRC_SERVER_POLICY_BUILD
-#define VRC_SERVER_POLICY_BUILD 43
+#ifndef VRC_LOCAL_POLICY_BUILD
+#define VRC_LOCAL_POLICY_BUILD 43
 #endif
 
-#if VRC_SERVER_POLICY_BUILD >= 46
-constexpr char kServerPolicyHash[] =
+#if VRC_LOCAL_POLICY_BUILD >= 46
+constexpr char kLocalPolicyHash[] =
     "6e78a8dcd461cd025c9f38716dd4245bcfe6083f765aaee5815009b4bf5142aa";
-constexpr char kServerPolicyDigest[] = "vpf-build46-server-policy-3";
-#elif VRC_SERVER_POLICY_BUILD >= 44
-constexpr char kServerPolicyHash[] =
+constexpr char kLocalPolicyDigest[] = "vpf-build46-local-policy-3";
+#elif VRC_LOCAL_POLICY_BUILD >= 44
+constexpr char kLocalPolicyHash[] =
     "9bbac923519d3d764625fc93f65d642b4297d5b1198cb6accfc4f10e3360437e";
-constexpr char kServerPolicyDigest[] = "vpf-build45-server-policy-2";
+constexpr char kLocalPolicyDigest[] = "vpf-build45-local-policy-2";
 #else
-constexpr char kServerPolicyHash[] =
+constexpr char kLocalPolicyHash[] =
     "f6da0cb028cb409f1521607bca8fc97ed7173844277c372e191f586a389e17c4";
-constexpr char kServerPolicyDigest[] = "vpf-build43-server-policy-2";
+constexpr char kLocalPolicyDigest[] = "vpf-build43-local-policy-2";
 #endif
 
-const std::set<std::string>& ServerSafeMethods() {
+const std::set<std::string>& LocalSafeMethods() {
     static const std::set<std::string> methods = {
         "native_named_unlock",
         "native_named_unlock_semantic_terminal",
@@ -43,14 +43,14 @@ const std::set<std::string>& ServerSafeMethods() {
         "native_compound_restriction_terminal",
         "native_guarded_numeric_dependency_terminal",
         "native_float_range_gate_terminal",
-#if VRC_SERVER_POLICY_BUILD >= 44
+#if VRC_LOCAL_POLICY_BUILD >= 44
         "native_no_reset_sync_latch_terminal",
         "native_fail_stop_dual_saved_latch_terminal",
         "native_semantic_ir_terminal",
         "native_osc_shift_restore_terminal",
         "native_active_root_parameter_maze",
 #endif
-#if VRC_SERVER_POLICY_BUILD >= 46
+#if VRC_LOCAL_POLICY_BUILD >= 46
         "native_menu_boolean_guard_substitution",
 #endif
     };
@@ -68,12 +68,12 @@ bool SafePlanMethodAllowed(const RuleProfile& profile,
     return profile.safe_plan_methods.count(method) != 0;
 }
 
-RuleProfile ServerRuleProfile() {
+RuleProfile LocalRuleProfile() {
     RuleProfile profile;
     profile.version = 2;
     profile.policy_version = "2";
-    profile.policy_hash = kServerPolicyHash;
-    profile.digest = Sha256Hex(std::string(kServerPolicyDigest), false);
+    profile.policy_hash = kLocalPolicyHash;
+    profile.digest = Sha256Hex(std::string(kLocalPolicyDigest), false);
     profile.capabilities = 0x1Fu;
     profile.detector_mask = detector_all;
     profile.allowed_condition_modes = 0xFFFFu;
@@ -88,12 +88,8 @@ RuleProfile ServerRuleProfile() {
     profile.require_menu_mapping_for_numeric = false;
     profile.require_verified_terminal_for_bypass = true;
     profile.min_high_evidence = 3;
-    profile.safe_plan_methods = ServerSafeMethods();
+    profile.safe_plan_methods = LocalSafeMethods();
     return profile;
-}
-
-RuleProfile DevelopmentRuleProfile() {
-    return ServerRuleProfile();
 }
 
 void SecureClearRuleProfile(RuleProfile& profile) {

@@ -22,9 +22,8 @@ constexpr std::size_t kMaximumOutputBytes = 16ull * 1024ull * 1024ull;
 
 void ApplyWorkerLimits() {
 #if defined(__linux__)
-    // Four workers share the small production host with the licence service.
-    // Keep the native hard ceiling aligned with the supervisor's 256 MiB
-    // prlimit so a direct invocation cannot escape the same capacity budget.
+    // Keep the native hard ceiling aligned with the local worker's 256 MiB
+    // address-space budget so a direct invocation cannot escape its capacity.
     const rlimit address{256ull * 1024ull * 1024ull,
         256ull * 1024ull * 1024ull};
     const rlimit cpu{180, 180};

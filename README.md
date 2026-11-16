@@ -1,10 +1,10 @@
-# VRCA 本地网页分析工具（发布候选）
+# VRCA 本地网页分析工具
 
 把 VRCA 结构提取与 C++ 分析核心放在自己的电脑上运行，不需要卡密、登录或分析服务器。模型不上传，原文件不修改，永久移除只生成另存副本。
 
 双击 `Start-VRCA.cmd`，自动启动本机服务并打开浏览器；选择模型、查看处理进度、密码候选和轮盘、保存报告都在本机完成。不需要卡密或登录。网页布局、样式和轮盘组件复用原有网页端，资源随源码提供，不加载在线字体或 CDN。
 
-**这是本地网页分析版，不是原商业工具全套功能的开源完成版。项目源码使用 AGPL-3.0-only。**
+**这是公开的本地网页分析版。项目自有源码使用 AGPL-3.0-only；第三方依赖和 VRChat SDK 保留各自许可证。**
 
 ## 普通用户：Windows 便携包
 
@@ -21,9 +21,9 @@
 - 本地提取菜单、控制器、状态机及相关结构，运行现有密码候选与终态分析规则。
 - 输出 JSON，保留结果、参考候选、置信度、证据不足与补读请求的区分。
 - 必要时执行一次定向深读；深读后仍不完整的结果保持不完整，不自动提升为可用密码。
-- 不依赖旧授权服务、账号、卡密、规则下载或 VMProtect SDK。
+- 不包含联网授权、账号、卡密、规则下载或 VMProtect SDK。
 
-本地网页已迁入：上传/拖放、真实阶段进度、密码候选分级、结构说明、完整报告下载、无图标轮盘预览、取消和退出。原页面的卡密、聊天与客户数据不迁入。
+本地网页已包含：上传/拖放、真实阶段进度、密码候选分级、结构说明、完整报告下载、无图标轮盘预览、取消和退出。原商业服务的卡密、聊天、后台和客户数据不属于本项目。
 
 已额外迁入以下两个功能，其他功能不迁移：
 
@@ -133,6 +133,8 @@ python tools/package_windows.py --python-zip python-3.12.x-embed-amd64.zip --pyt
 
 Windows 提取进程使用现有 Job Object 内存门禁，默认上限 2 GiB；MSVC 构建的原生 worker 固定预留 8 MiB 栈，避免默认 1 MiB 栈在分析中溢出。Linux 原生 worker 保留 256 MiB 地址空间、180 秒 CPU 和禁用 core dump 的限制。Python 提取器在 Linux 上没有同等内存门禁，应另用容器或系统资源限制。该项目不是恶意文件安全沙箱。
 
-## 发布与许可证
+## 公开发布与许可证
 
-项目自有源码采用 [GNU AGPL v3](LICENSE)（SPDX: `AGPL-3.0-only`）。允许商业使用，修改、分发和提供网络服务时须遵守对应条款；不提供任何保证。详见 [LICENSING.md](LICENSING.md)、[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 与 [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)。客户模型、卡密数据库、密钥、服务配置、历史日志与生产备份不属于发布内容。
+项目自有源码采用 [GNU AGPL v3](LICENSE)（SPDX: `AGPL-3.0-only`）。允许商业使用，修改、分发和提供网络服务时须遵守对应条款；不提供任何保证。详见 [LICENSING.md](LICENSING.md)、[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 与 [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)。客户模型、卡密数据库、密钥、服务配置、历史日志与生产备份不属于本仓库。
+
+公开版本只支持本机处理：程序监听回环地址，不上传模型，不调用旧授权服务，也不包含卡密或合作商接口。便携包中的 CPython、UnityPy 依赖、AssetRipper、XZ/liblzma 和可选本地 SDK 均按各自许可提供；发布包含 VRChat SDK 的完整便携包前，请单独核对 SDK 条款。

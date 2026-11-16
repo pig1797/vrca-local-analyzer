@@ -1,4 +1,4 @@
-"""Loopback-only browser UI. No licence service, external assets or telemetry."""
+"""Loopback-only browser UI. No network authorization, external assets or telemetry."""
 from __future__ import annotations
 
 import argparse
