@@ -4,7 +4,7 @@
 
 **这是公开的本地命令行分析核心，项目自有源码使用 AGPL-3.0-only。**
 
-本仓库的 `main` 分支提供命令行核心；包含本地网页、永久移除和 Unity 工程导出的完整版本位于 [`codex/local-browser-app`](https://github.com/pig1797/vrca-local-analyzer/tree/codex/local-browser-app)，对应的迁移记录见 [PR #1](https://github.com/pig1797/vrca-local-analyzer/pull/1)。
+本仓库的 `main` 分支提供命令行核心；包含本地网页、永久移除和 Unity 工程导出的完整版本位于 [`public-release`](https://github.com/pig1797/vrca-local-analyzer/tree/public-release)，对应的迁移记录见 [PR #1](https://github.com/pig1797/vrca-local-analyzer/pull/1)。
 
 ## 当前范围
 
